@@ -5,6 +5,23 @@ import LoginForm from './LoginForm'
 
 const mockPush = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }))
+vi.mock('@/components/GoogleSignInButton', () => ({
+  default: ({
+    googleClientId,
+    onError,
+  }: {
+    googleClientId: string
+    onError: (m: string) => void
+  }) => (
+    <button
+      data-testid="google-btn"
+      data-client-id={googleClientId}
+      onClick={() => onError('Google sign-in failed')}
+    >
+      Sign in with Google
+    </button>
+  ),
+}))
 
 function mockFetch(status: number, body: object) {
   global.fetch = vi.fn().mockResolvedValueOnce({
@@ -54,6 +71,25 @@ describe('LoginForm', () => {
     expect(screen.getByRole('link', { name: /forgot password/i })).toHaveAttribute(
       'href',
       '/forgot-password',
+    )
+  })
+
+  it('does not render Google button when googleClientId is null', () => {
+    render(<LoginForm googleClientId={null} />)
+    expect(screen.queryByTestId('google-btn')).not.toBeInTheDocument()
+  })
+
+  it('renders Google button when googleClientId is provided', () => {
+    render(<LoginForm googleClientId="gid_123" />)
+    expect(screen.getByTestId('google-btn')).toBeInTheDocument()
+    expect(screen.getByTestId('google-btn')).toHaveAttribute('data-client-id', 'gid_123')
+  })
+
+  it('shows error when Google sign-in fails', async () => {
+    render(<LoginForm googleClientId="gid_123" />)
+    await userEvent.click(screen.getByTestId('google-btn'))
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Google sign-in failed'),
     )
   })
 })

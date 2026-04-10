@@ -1,21 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: object) => void
-          renderButton: (element: HTMLElement, config: object) => void
-        }
-      }
-    }
-  }
-}
+import GoogleSignInButton from '@/components/GoogleSignInButton'
 
 interface Props {
   googleClientId: string | null
@@ -27,53 +15,9 @@ export default function LoginForm({ googleClientId }: Props) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const googleBtnRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!googleClientId) return
-    const handleCredential = async (response: { credential: string }) => {
-      setLoading(true)
-      setError(null)
-      try {
-        const res = await fetch('/api/auth/google', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id_token: response.credential }),
-        })
-        const data = await res.json()
-        if (!res.ok) {
-          setError(data.error ?? 'Google sign-in failed')
-        } else {
-          router.push('/dashboard')
-        }
-      } catch {
-        setError('Network error — please try again')
-      } finally {
-        setLoading(false)
-      }
-    }
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    script.onload = () => {
-      window.google?.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: handleCredential,
-      })
-      if (googleBtnRef.current) {
-        window.google?.accounts.id.renderButton(googleBtnRef.current, {
-          theme: 'outline',
-          size: 'large',
-          width: 320,
-        })
-      }
-    }
-    document.head.appendChild(script)
-    return () => {
-      script.remove()
-    }
-  }, [googleClientId, router])
+  const handleGoogleError = useCallback((msg: string) => setError(msg || null), [])
+  const handleGoogleLoading = useCallback((val: boolean) => setLoading(val), [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -151,17 +95,11 @@ export default function LoginForm({ googleClientId }: Props) {
           </button>
         </form>
         {googleClientId && (
-          <div className="flex flex-col items-center space-y-3">
-            <div className="relative w-full">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-gray-50 text-gray-500">or</span>
-              </div>
-            </div>
-            <div ref={googleBtnRef} id="google-signin-btn" />
-          </div>
+          <GoogleSignInButton
+            googleClientId={googleClientId}
+            onError={handleGoogleError}
+            onLoadingChange={handleGoogleLoading}
+          />
         )}
         <div className="flex justify-between text-sm text-gray-600">
           <Link href="/signup" className="hover:text-gray-900">

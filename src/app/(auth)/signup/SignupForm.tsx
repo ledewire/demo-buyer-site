@@ -1,16 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import GoogleSignInButton from '@/components/GoogleSignInButton'
 
-export default function SignupForm() {
+interface Props {
+  googleClientId: string | null
+}
+
+export default function SignupForm({ googleClientId }: Props) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const handleGoogleError = useCallback((msg: string) => setError(msg || null), [])
+  const handleGoogleLoading = useCallback((val: boolean) => setLoading(val), [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -108,6 +116,13 @@ export default function SignupForm() {
             Sign in
           </Link>
         </p>
+        {googleClientId && (
+          <GoogleSignInButton
+            googleClientId={googleClientId}
+            onError={handleGoogleError}
+            onLoadingChange={handleGoogleLoading}
+          />
+        )}
       </div>
     </div>
   )
