@@ -35,3 +35,17 @@ jobs:
 
       - name: Security audit
         run: npm run audit:security
+
+  deploy:
+    name: Deploy to Vercel (Production)
+    runs-on: ubuntu-latest
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        run: npx vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
