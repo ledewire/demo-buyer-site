@@ -4,6 +4,9 @@ import userEvent from '@testing-library/user-event'
 import MembersManager from './MembersManager'
 import type { CompanyInvitation, CompanyMember } from '@ledewire/node'
 
+const mockRefresh = vi.fn()
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: mockRefresh }) }))
+
 function makeMember(overrides: Partial<CompanyMember> = {}): CompanyMember {
   return {
     id: 'mem-1',
@@ -53,6 +56,7 @@ function renderManager(members = [makeMember(), bob], invitations: CompanyInvita
 describe('MembersManager', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    mockRefresh.mockReset()
   })
 
   it('renders members with their caps and marks the viewer', () => {
@@ -249,6 +253,104 @@ describe('MembersManager', () => {
     await userEvent.type(screen.getByLabelText('Email'), 'bob@example.com')
     await userEvent.click(screen.getByRole('button', { name: 'Send invitation' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('already a member')
+  })
+
+  describe('adding a machine user', () => {
+    function machineForm() {
+      const machines = screen.getByRole('region', { name: 'Machines' })
+      return {
+        name: within(machines).getByLabelText('Name'),
+        description: within(machines).getByLabelText('Description (optional)'),
+        submit: within(machines).getByRole('button', { name: 'Add machine' }),
+      }
+    }
+
+    it('posts the name and description, clears the form and refreshes the page data', async () => {
+      mockFetch(201, { id: 'mu-1', name: 'research-agent' })
+      renderManager()
+      const form = machineForm()
+      await userEvent.type(form.name, 'research-agent')
+      await userEvent.type(form.description, 'Nightly crawler')
+      await userEvent.click(form.submit)
+      await waitFor(() => expect(mockRefresh).toHaveBeenCalledTimes(1))
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/company/machine-users',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ name: 'research-agent', description: 'Nightly crawler' }),
+        }),
+      )
+      expect(form.name).toHaveValue('')
+      expect(form.description).toHaveValue('')
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    it('leaves the description out when it is blank', async () => {
+      mockFetch(201, { id: 'mu-1', name: 'bot' })
+      renderManager()
+      const form = machineForm()
+      await userEvent.type(form.name, 'bot')
+      await userEvent.click(form.submit)
+      await waitFor(() => expect(mockRefresh).toHaveBeenCalled())
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/company/machine-users',
+        expect.objectContaining({ body: JSON.stringify({ name: 'bot' }) }),
+      )
+    })
+
+    it('limits the name to 100 characters and requires it', () => {
+      renderManager()
+      const { name } = machineForm()
+      expect(name).toBeRequired()
+      expect(name).toHaveAttribute('maxLength', '100')
+    })
+
+    it("shows the route's error and keeps the form when adding fails", async () => {
+      mockFetch(409, { error: 'A machine user named bot already exists' })
+      renderManager()
+      const form = machineForm()
+      await userEvent.type(form.name, 'bot')
+      await userEvent.click(form.submit)
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'A machine user named bot already exists',
+      )
+      expect(form.name).toHaveValue('bot')
+      expect(mockRefresh).not.toHaveBeenCalled()
+    })
+
+    it('disables the button while the request is in flight', async () => {
+      let resolve!: (res: Response) => void
+      global.fetch = vi.fn().mockReturnValueOnce(new Promise<Response>((r) => (resolve = r)))
+      renderManager()
+      const form = machineForm()
+      await userEvent.type(form.name, 'bot')
+      await userEvent.click(form.submit)
+      expect(form.submit).toBeDisabled()
+      resolve({ ok: true, json: async () => ({ id: 'mu-1' }) } as Response)
+      await waitFor(() => expect(form.submit).toBeEnabled())
+    })
+
+    it('shows the new machine when the refreshed page data arrives', () => {
+      const { rerender } = renderManager()
+      const machine = makeMember({
+        id: 'mem-9',
+        user_id: 'user-9',
+        kind: 'machine',
+        email: null,
+        name: 'research-agent',
+        role: 'member',
+      })
+      rerender(
+        <MembersManager
+          initialMembers={[makeMember(), bob, machine]}
+          initialInvitations={[]}
+          currentMembershipId="mem-1"
+        />,
+      )
+      const machines = screen.getByRole('region', { name: 'Machines' })
+      const row = within(machines).getByText('research-agent').closest('tr')!
+      expect(within(row).getByText('$10.00')).toBeInTheDocument()
+    })
   })
 
   it('shows a network error', async () => {
