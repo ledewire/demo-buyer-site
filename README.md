@@ -14,7 +14,7 @@ A Next.js 15 buyer portal for the [LedeWire](https://ledewire.com) content marke
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 22 (`.nvmrc`)
 - A running LedeWire API instance (defaults to `https://api.ledewire.com`)
 
 ## Getting Started
