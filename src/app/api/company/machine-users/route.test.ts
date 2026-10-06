@@ -81,6 +81,14 @@ describe('POST /api/company/machine-users', () => {
     expect(mockCreate).toHaveBeenCalledWith({ name: 'bot', description: 'Nightly crawler' })
   })
 
+  it('trims the description and leaves it out when blank', async () => {
+    mockCreate.mockResolvedValue({ id: 'mu-1' })
+    await POST(postRequest({ name: 'bot', description: '  Nightly crawler  ' }))
+    expect(mockCreate).toHaveBeenLastCalledWith({ name: 'bot', description: 'Nightly crawler' })
+    await POST(postRequest({ name: 'bot', description: '   ' }))
+    expect(mockCreate).toHaveBeenLastCalledWith({ name: 'bot' })
+  })
+
   it('returns 401 on AuthError', async () => {
     mockCreate.mockRejectedValue(new AuthError('expired'))
     const res = await POST(postRequest({ name: 'bot' }))

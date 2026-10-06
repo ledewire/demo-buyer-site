@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { CompanyInvitation, CompanyMember } from '@ledewire/node'
 import { formatDate } from '@/lib/format'
+import { MAX_MACHINE_NAME_LENGTH } from '@/lib/machine-users'
 import MemberRow, { type Role } from './MemberRow'
 
 interface Props {
@@ -12,9 +13,6 @@ interface Props {
   /** The viewer's own membership id, marked "(you)" in the table. */
   currentMembershipId: string
 }
-
-/** The API's limit on a Machine user's name. */
-const MAX_MACHINE_NAME_LENGTH = 100
 
 const TH = 'px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
 
@@ -26,9 +24,9 @@ export default function MembersManager({
   const router = useRouter()
   const [members, setMembers] = useState(initialMembers)
   // Take fresh members when the page data is refreshed (e.g. after adding a machine).
-  const [syncedMembers, setSyncedMembers] = useState(initialMembers)
-  if (initialMembers !== syncedMembers) {
-    setSyncedMembers(initialMembers)
+  const [prevInitialMembers, setPrevInitialMembers] = useState(initialMembers)
+  if (initialMembers !== prevInitialMembers) {
+    setPrevInitialMembers(initialMembers)
     setMembers(initialMembers)
   }
   const [invitations, setInvitations] = useState(initialInvitations)

@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { ledewireErrorResponse } from '@/lib/route-errors'
-
-/** The API's limit on a Machine user's name. */
-const MAX_NAME_LENGTH = 100
+import { MAX_MACHINE_NAME_LENGTH } from '@/lib/machine-users'
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAuthForRoute()
@@ -21,9 +19,9 @@ export async function POST(request: NextRequest) {
   if (typeof name !== 'string' || !name.trim()) {
     return NextResponse.json({ error: 'name is required' }, { status: 400 })
   }
-  if (name.trim().length > MAX_NAME_LENGTH) {
+  if (name.trim().length > MAX_MACHINE_NAME_LENGTH) {
     return NextResponse.json(
-      { error: `name must be at most ${MAX_NAME_LENGTH} characters` },
+      { error: `name must be at most ${MAX_MACHINE_NAME_LENGTH} characters` },
       { status: 400 },
     )
   }
@@ -35,7 +33,7 @@ export async function POST(request: NextRequest) {
     const client = await createBuyerClient()
     const machineUser = await client.company.machineUsers.create({
       name: name.trim(),
-      ...(description !== undefined && { description }),
+      ...(description?.trim() && { description: description.trim() }),
     })
     return NextResponse.json(machineUser, { status: 201 })
   } catch (err) {
