@@ -5,10 +5,23 @@ const navLinks = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/wallet', label: 'Wallet' },
   { href: '/purchases', label: 'Purchases' },
+  { href: '/catalog', label: 'Catalog' },
+  { href: '/exports', label: 'Exports' },
   { href: '/api-keys', label: 'API Keys' },
 ]
 
-export default function NavBar() {
+const companyAdminLinks = [
+  { href: '/company/members', label: 'Members' },
+  { href: '/company/purchases', label: 'Company Purchases' },
+]
+
+interface Props {
+  /** Shows the Company admin links when true. */
+  isCompanyAdmin?: boolean
+}
+
+export default function NavBar({ isCompanyAdmin = false }: Props) {
+  const links = isCompanyAdmin ? [...navLinks, ...companyAdminLinks] : navLinks
   return (
     <nav className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -16,7 +29,7 @@ export default function NavBar() {
           <div className="flex items-center space-x-8">
             <span className="font-bold text-indigo-700 text-lg">LedeWire</span>
             <div className="hidden sm:flex space-x-6">
-              {navLinks.map(({ href, label }) => (
+              {links.map(({ href, label }) => (
                 <Link
                   key={href}
                   href={href}

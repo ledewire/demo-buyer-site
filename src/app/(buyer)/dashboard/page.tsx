@@ -2,16 +2,19 @@ import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { AuthError, LedewireError } from '@ledewire/node'
+import { formatCents } from '@/lib/format'
+import { listItems } from '@/lib/list-items'
 
 export default async function DashboardPage() {
   await requireAuth()
 
   try {
     const client = await createBuyerClient()
-    const [{ balance_cents }, purchases] = await Promise.all([
+    const [balance, purchaseList] = await Promise.all([
       client.wallet.balance(),
       client.purchases.list(),
     ])
+    const purchases = listItems(purchaseList)
 
     const totalSpent = purchases.reduce((sum, p) => sum + p.amount_cents, 0)
     const recentPurchases = purchases.slice(0, 5)
@@ -20,9 +23,19 @@ export default async function DashboardPage() {
       <div className="space-y-8">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <StatCard label="Wallet Balance" value={`$${(balance_cents / 100).toFixed(2)}`} />
+          {balance.company_name ? (
+            // A Company member never sees the Company balance — show their cap headroom.
+            <StatCard
+              label={`Remaining today · ${balance.company_name}`}
+              value={
+                balance.remaining_cents === null ? 'Uncapped' : formatCents(balance.remaining_cents)
+              }
+            />
+          ) : (
+            <StatCard label="Wallet Balance" value={formatCents(balance.balance_cents ?? 0)} />
+          )}
           <StatCard label="Total Purchases" value={String(purchases.length)} />
-          <StatCard label="Total Spent" value={`$${(totalSpent / 100).toFixed(2)}`} />
+          <StatCard label="Total Spent" value={formatCents(totalSpent)} />
         </div>
         <div>
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Recent Purchases</h2>
@@ -34,7 +47,7 @@ export default async function DashboardPage() {
                 <div key={p.id} className="px-4 py-3 flex justify-between">
                   <span className="text-sm text-gray-800">{p.content.title}</span>
                   <span className="text-sm font-medium text-gray-600">
-                    ${(p.amount_cents / 100).toFixed(2)}
+                    {formatCents(p.amount_cents)}
                   </span>
                 </div>
               ))}

@@ -63,6 +63,27 @@ describe('WalletFund', () => {
     await waitFor(() => expect(screen.getByText(/internal server error/i)).toBeInTheDocument())
   })
 
+  it('labels the button Add funds for the Company wallet', () => {
+    render(<WalletFund target="company" />)
+    expect(screen.getByRole('button', { name: /add funds/i })).toBeInTheDocument()
+  })
+
+  it('creates a Company payment session for the Company target', async () => {
+    mockFetch(200, { client_secret: 'pi_secret', session_id: 'sess_1', public_key: 'pk_test' })
+    render(<WalletFund target="company" />)
+    await userEvent.click(screen.getByRole('button', { name: /add funds/i }))
+    await userEvent.type(screen.getByLabelText(/amount to fund/i), '25')
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }))
+    await waitFor(() => expect(screen.getByTestId('payment-element')).toBeInTheDocument())
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/company/wallet/payment-session',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ amount_cents: 2500, currency: 'usd' }),
+      }),
+    )
+  })
+
   it('returns to idle on Cancel', async () => {
     render(<WalletFund />)
     await userEvent.click(screen.getByRole('button', { name: /fund wallet/i }))

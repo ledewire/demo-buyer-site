@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { AuthError, LedewireError } from '@ledewire/node'
+import { getCompanyMembership } from '@/lib/company'
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAuthForRoute()
@@ -20,6 +21,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // A Company's members spend from the Company wallet only.
+    if (await getCompanyMembership()) {
+      return NextResponse.json(
+        { error: 'Company members cannot fund a personal wallet' },
+        { status: 403 },
+      )
+    }
     const client = await createBuyerClient()
     const session = await client.wallet.createPaymentSession({
       amount_cents,

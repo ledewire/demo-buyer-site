@@ -5,6 +5,7 @@ const mockCreatePaymentSession = vi.fn()
 
 vi.mock('@/lib/route-auth', () => ({ requireAuthForRoute: vi.fn() }))
 vi.mock('@/lib/ledewire', () => ({ createBuyerClient: vi.fn() }))
+vi.mock('@/lib/company', () => ({ getCompanyMembership: vi.fn() }))
 vi.mock('@ledewire/node', async (importOriginal) => {
   return await importOriginal<typeof import('@ledewire/node')>()
 })
@@ -13,6 +14,7 @@ import { POST } from './route'
 import { AuthError, LedewireError } from '@ledewire/node'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
+import { getCompanyMembership } from '@/lib/company'
 
 function makeRequest(body: object) {
   return new NextRequest('http://localhost/api/wallet/payment-session', {
@@ -26,6 +28,7 @@ describe('POST /api/wallet/payment-session', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(requireAuthForRoute).mockResolvedValue({})
+    vi.mocked(getCompanyMembership).mockResolvedValue(null)
     vi.mocked(createBuyerClient).mockResolvedValue({
       wallet: { createPaymentSession: mockCreatePaymentSession },
     } as never)
@@ -61,6 +64,19 @@ describe('POST /api/wallet/payment-session', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual(session)
     expect(mockCreatePaymentSession).toHaveBeenCalledWith({ amount_cents: 1000, currency: 'usd' })
+  })
+
+  it('returns 403 for a Company member without creating a session', async () => {
+    vi.mocked(getCompanyMembership).mockResolvedValue({
+      id: 'm1',
+      company_id: 'c1',
+      company_name: 'Acme',
+      role: 'admin',
+      joined_at: '2026-01-01T00:00:00Z',
+    })
+    const res = await POST(makeRequest({ amount_cents: 1000 }))
+    expect(res.status).toBe(403)
+    expect(mockCreatePaymentSession).not.toHaveBeenCalled()
   })
 
   it('uses default currency usd when not provided', async () => {

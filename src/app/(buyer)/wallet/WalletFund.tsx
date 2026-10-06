@@ -4,7 +4,17 @@ import { useState } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 
-function StripePaymentForm({ sessionId, onSuccess }: { sessionId: string; onSuccess: () => void }) {
+type FundTarget = 'personal' | 'company'
+
+function StripePaymentForm({
+  sessionId,
+  target,
+  onSuccess,
+}: {
+  sessionId: string
+  target: FundTarget
+  onSuccess: () => void
+}) {
   const stripe = useStripe()
   const elements = useElements()
   const [error, setError] = useState<string | null>(null)
@@ -25,6 +35,13 @@ function StripePaymentForm({ sessionId, onSuccess }: { sessionId: string; onSucc
     if (stripeError) {
       setError(stripeError.message ?? 'Payment failed')
       setProcessing(false)
+      return
+    }
+
+    // payment-status cannot see a Company session; a Company top-up is
+    // tracked through the pending top-ups list until it settles instead.
+    if (target === 'company') {
+      onSuccess()
       return
     }
 
@@ -62,7 +79,12 @@ function StripePaymentForm({ sessionId, onSuccess }: { sessionId: string; onSucc
 
 type FundState = 'idle' | 'entering-amount' | 'paying'
 
-export default function WalletFund() {
+interface Props {
+  /** Which wallet to fund. A Company top-up requires a Company admin. */
+  target?: FundTarget
+}
+
+export default function WalletFund({ target = 'personal' }: Props) {
   const [fundState, setFundState] = useState<FundState>('idle')
   const [amountDollars, setAmountDollars] = useState('')
   const [paymentSession, setPaymentSession] = useState<{
@@ -84,11 +106,16 @@ export default function WalletFund() {
       return
     }
     try {
-      const res = await fetch('/api/wallet/payment-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount_cents: Math.round(amount * 100), currency: 'usd' }),
-      })
+      const res = await fetch(
+        target === 'company'
+          ? '/api/company/wallet/payment-session'
+          : '/api/wallet/payment-session',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount_cents: Math.round(amount * 100), currency: 'usd' }),
+        },
+      )
       const data = await res.json()
       if (!res.ok) {
         setError(data.error ?? 'Failed to create payment session')
@@ -116,7 +143,7 @@ export default function WalletFund() {
         onClick={() => setFundState('entering-amount')}
         className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
       >
-        Fund wallet
+        {target === 'company' ? 'Add funds' : 'Fund wallet'}
       </button>
     )
   }
@@ -164,7 +191,11 @@ export default function WalletFund() {
     return (
       <div className="w-full max-w-md space-y-3">
         <Elements stripe={stripePromise} options={{ clientSecret: paymentSession.client_secret }}>
-          <StripePaymentForm sessionId={paymentSession.session_id} onSuccess={handleSuccess} />
+          <StripePaymentForm
+            sessionId={paymentSession.session_id}
+            target={target}
+            onSuccess={handleSuccess}
+          />
         </Elements>
         <button
           type="button"
