@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+# Per-issue git worktrees, so issue work never disturbs the launch checkout and
+# several issues can be worked at once. Adapted from ledewire/api's bin/worktree,
+# minus the Docker: this app has no database or local services, so the files in
+# the worktree (node_modules, .next, .env*.local) are all there is to isolate.
+#
+#   bin/worktree issue <n>   link a branch to issue <n> (gh issue develop), add a
+#                            worktree for it from the issue's base, copy local-only
+#                            config, npm ci, print the EnterWorktree line
+#   bin/worktree path <n>    print the worktree path for issue <n>
+#   bin/worktree list        list worktrees
+#   bin/worktree rm <n>      remove issue <n>'s worktree (refuses uncommitted changes)
+#   bin/worktree land <n>    wait for issue <n>'s PR to close, then rm its worktree
+#
+# Worktrees live in ../<repo>-worktrees/<branch>. The base branch is the issue's
+# **Base branch:** field, else main.
+set -euo pipefail
+
+die() { echo "bin/worktree: $*" >&2; exit 1; }
+note() { echo "!! $*" >&2; }
+
+# Files git ignores that a working checkout still needs, relative to checkout $1.
+local_files() {
+  (cd "$1" && shopt -s nullglob && printf '%s\n' .env*.local .claude/settings.local.json) \
+    | while read -r f; do [ ! -f "$1/$f" ] || printf '%s\n' "$f"; done
+}
+
+# Always the primary checkout, even when run from inside a worktree.
+main_root="$(cd "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" && pwd)"
+worktrees_root="$(dirname "$main_root")/$(basename "$main_root")-worktrees"
+
+need_issue() {
+  case "${1:-}" in
+    ''|*[!0-9]*) die "expected an issue number, got '${1:-}'." ;;
+  esac
+}
+
+# Branch of the worktree for issue $1, or nothing.
+worktree_branch() {
+  git -C "$main_root" worktree list --porcelain \
+    | awk -v n="$1" '/^branch refs\/heads\// { b = substr($2, 12); if (index(b, n "-") == 1) print b }' \
+    | head -n 1
+}
+
+worktree_path() {
+  git -C "$main_root" worktree list --porcelain \
+    | awk -v b="refs/heads/$1" '/^worktree / { p = substr($0, 10) } $0 == "branch " b { print p }'
+}
+
+# The $2 field of the newest PR from branch $1, or nothing when there is none.
+pr_field() {
+  gh pr list --head "$1" --state all --json "$2" --jq ".[0].$2"
+}
+
+# Succeeds when the current directory is $1 or inside it.
+inside() {
+  case "$(pwd -P)/" in
+    "$(cd "$1" && pwd -P)/"*) return 0 ;;
+  esac
+  return 1
+}
+
+linked_branch() {
+  gh issue develop --list "$1" 2>/dev/null | awk 'NR == 1 { print $1 }'
+}
+
+cmd_issue() {
+  local n="$1" state body base branch path
+  need_issue "$n"
+
+  state="$(gh issue view "$n" --json state --jq .state)" || die "cannot read issue #$n."
+  [ "$state" = "OPEN" ] || die "issue #$n is $state."
+
+  branch="$(worktree_branch "$n")"
+  if [ -n "$branch" ]; then
+    path="$(worktree_path "$branch")"
+    echo "Issue #$n already has a worktree."
+    echo "EnterWorktree path=$path"
+    return
+  fi
+
+  body="$(gh issue view "$n" --json body --jq .body)"
+  base="$(printf '%s\n' "$body" | sed -n 's/^\*\*Base branch:\*\* *`\{0,1\}\([^` ]*\)`\{0,1\}.*/\1/p' | head -n 1)"
+  base="${base:-main}"
+  # Anyone can write an issue body; keep it to a plain branch name before git sees it.
+  case "$base" in
+    ''|-*|*..*|*[!A-Za-z0-9._/-]*)
+      die "the issue's **Base branch:** '$base' is not a usable branch name — fix the issue body." ;;
+  esac
+
+  git -C "$main_root" fetch --quiet origin "$base"
+
+  branch="$(linked_branch "$n")"
+  if [ -z "$branch" ]; then
+    gh issue develop "$n" --base "$base" >/dev/null
+    branch="$(linked_branch "$n")"
+    [ -n "$branch" ] || die "gh issue develop ran, but issue #$n still lists no linked branch."
+    echo "Linked $branch to issue #$n."
+  else
+    echo "Using $branch, already linked to issue #$n."
+  fi
+
+  git -C "$main_root" fetch --quiet origin "$branch"
+  path="$worktrees_root/$branch"
+  mkdir -p "$worktrees_root"
+  if git -C "$main_root" show-ref --verify --quiet "refs/heads/$branch"; then
+    git -C "$main_root" worktree add --quiet "$path" "$branch"
+  else
+    git -C "$main_root" worktree add --quiet --track -b "$branch" "$path" "origin/$branch"
+  fi
+  [ "$base" = "main" ] || git -C "$path" config "branch.$branch.shipBase" "$base"
+
+  local f
+  while read -r f; do
+    mkdir -p "$(dirname "$path/$f")"
+    cp "$main_root/$f" "$path/$f"
+  done < <(local_files "$main_root")
+
+  local behind
+  behind="$(git -C "$path" rev-list --count "HEAD..origin/$base")"
+  [ "$behind" -eq 0 ] \
+    || note "$branch is $behind commit(s) behind origin/$base — run 'git merge origin/$base' in the worktree first."
+
+  echo "Installing dependencies (npm ci)…"
+  (cd "$path" && npm ci --no-audit --no-fund --loglevel=error)
+
+  echo
+  echo "Worktree for #$n on $branch (base $base) is ready."
+  echo "EnterWorktree path=$path"
+}
+
+cmd_path() {
+  need_issue "$1"
+  local branch
+  branch="$(worktree_branch "$1")"
+  [ -n "$branch" ] || die "no worktree for issue #$1."
+  worktree_path "$branch"
+}
+
+cmd_rm() {
+  need_issue "$1"
+  local branch path pr_state
+  branch="$(worktree_branch "$1")"
+  [ -n "$branch" ] || die "no worktree for issue #$1."
+  path="$(worktree_path "$branch")"
+
+  ! inside "$path" || die "you are inside $path — leave it first (ExitWorktree, or cd $main_root)."
+
+  if [ -n "$(git -C "$path" status --porcelain)" ]; then
+    git -C "$path" status --short >&2
+    die "$path has uncommitted changes. Commit, stash or discard them, then re-run."
+  fi
+
+  git -C "$main_root" worktree remove "$path"
+  echo "Removed $path."
+
+  # Squash merges leave the branch looking unmerged to git, so ask GitHub instead.
+  pr_state="$(pr_field "$branch" state 2>/dev/null || true)"
+  case "$pr_state" in
+    MERGED|CLOSED)
+      git -C "$main_root" branch -D --quiet "$branch"
+      echo "Deleted local branch $branch (PR $pr_state)." ;;
+    *)
+      echo "Kept local branch $branch (PR ${pr_state:-not opened})." ;;
+  esac
+}
+
+cmd_land() {
+  need_issue "$1"
+  local branch state interval="${WORKTREE_LAND_POLL_SECONDS:-60}"
+  branch="$(worktree_branch "$1")"
+  [ -n "$branch" ] || die "no worktree for issue #$1."
+  ! inside "$(worktree_path "$branch")" || die "run land from $main_root, not from inside the worktree."
+  [ -n "$(pr_field "$branch" number)" ] \
+    || die "no PR for $branch — ship it first with bin/ship."
+
+  echo "Waiting for the PR on $branch to close (polling every ${interval}s)…"
+  while :; do
+    # A network blip must not kill a watch that may run for hours.
+    state="$(pr_field "$branch" state)" || { note "gh pr list failed; retrying."; state=""; }
+    case "$state" in
+      MERGED|CLOSED) break ;;
+    esac
+    sleep "$interval"
+  done
+
+  echo "PR on $branch is $state."
+  cmd_rm "$1"
+}
+
+case "${1:-}" in
+  issue) cmd_issue "${2:-}" ;;
+  path)  cmd_path "${2:-}" ;;
+  list)  git -C "$main_root" worktree list ;;
+  rm)    cmd_rm "${2:-}" ;;
+  land)  cmd_land "${2:-}" ;;
+  -h|--help|'') sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) die "unknown command '$1' (try --help)" ;;
+esac

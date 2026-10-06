@@ -1,0 +1,157 @@
+#!/usr/bin/env bash
+# Ship the current issue branch: refuse an unreviewed HEAD or a stale base, run
+# the checks CI runs, push, verify the push landed, and open a draft PR that
+# closes the issue. Adapted from ledewire/api's bin/ship.
+#
+#   bin/ship --body-file <path>  ship the branch; <path> is the PR body written
+#                                with the /pr skill (Closes #<n> is prepended)
+#   bin/ship --reviewed          record that /mattpocock-skills:code-review and
+#                                /security-review both ran against the current HEAD
+#
+# The issue number comes from the branch name (`gh issue develop` makes
+# `<number>-<slug>`). The base is `main` unless
+# `git config branch.<branch>.shipBase <base>` says otherwise.
+#
+# The review stamp catches forgetting, not dishonesty: `--reviewed` can be run
+# without reviewing. SHIP_SKIP_REVIEW=1 ships without one.
+set -euo pipefail
+
+die() { echo "bin/ship: $*" >&2; exit 1; }
+step() { echo "== $1 =="; }
+
+# Dies with $1 when tracked files have uncommitted changes. Untracked scratch
+# files are not part of what gets pushed, so they do not count.
+require_committed() {
+  [ -n "$(git status --porcelain --untracked-files=no)" ] || return 0
+  git status --short --untracked-files=no >&2
+  die "$1"
+}
+
+mode="ship"
+body_file=""
+case "${1:-}" in
+  --reviewed) mode="reviewed" ;;
+  --body-file)
+    body_file="${2:-}"
+    [ -n "$body_file" ] || die "--body-file needs a path."
+    [ -s "$body_file" ] || die "PR body file '$body_file' is missing or empty."
+    body_file="$(cd "$(dirname "$body_file")" && pwd)/$(basename "$body_file")" ;;
+  "") ;;
+  -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  *) die "unrecognized argument: $1 (try --help)" ;;
+esac
+
+cd "$(dirname "$0")/.."
+
+branch="$(git branch --show-current)"
+[ -n "$branch" ] || die "not on a branch (detached HEAD) — nothing to ship."
+case "$branch" in
+  main|staging) die "on $branch. Issue work happens on a branch from 'bin/worktree issue <n>' — see /issue." ;;
+esac
+
+issue="${branch%%-*}"
+case "$issue" in
+  ''|*[!0-9]*)
+    die "branch '$branch' does not start with an issue number. Every change ships against
+an issue: file one, then create the branch with 'bin/worktree issue <n>'." ;;
+esac
+
+base="$(git config "branch.$branch.shipBase" || echo main)"
+reviews_dir="$(git rev-parse --absolute-git-dir)/ship-reviews"
+head_sha="$(git rev-parse HEAD)"
+
+if [ "$mode" = "reviewed" ]; then
+  require_committed "uncommitted changes to tracked files, so a stamp for HEAD would not
+describe what gets pushed. Commit them, then re-run."
+  mkdir -p "$reviews_dir"
+  touch "$reviews_dir/$head_sha"
+  echo "Recorded: both reviews ran against $(git rev-parse --short HEAD)."
+  exit 0
+fi
+
+step "Fetching $base"
+git fetch --quiet origin "$base"
+
+[ -n "$(git log "origin/$base..HEAD" --oneline)" ] \
+  || die "$branch has no commits ahead of origin/$base — nothing to ship."
+
+behind="$(git rev-list --count "HEAD..origin/$base")"
+if [ "$behind" -gt 0 ]; then
+  die "$branch is $behind commit(s) behind origin/$base, so CI would test a stale merge.
+Refresh first (git rebase origin/$base, or merge if already pushed), then re-run."
+fi
+
+require_committed "uncommitted changes to tracked files would not be pushed. Commit or stash them."
+
+case "${SHIP_SKIP_REVIEW:-}" in
+  ''|0|no|false)
+    if [ ! -f "$reviews_dir/$head_sha" ]; then
+      {
+        echo "bin/ship: HEAD ($(git rev-parse --short HEAD)) has not been reviewed. Run both, then record them:"
+        echo
+        echo "  /mattpocock-skills:code-review"
+        echo "  /security-review"
+        echo "  bin/ship --reviewed"
+        prior="$(ls -t "$reviews_dir" 2>/dev/null | head -n 1 || true)"
+        if [ -n "$prior" ] && git merge-base --is-ancestor "$prior" HEAD 2>/dev/null; then
+          echo
+          echo "$(git rev-parse --short "$prior") was reviewed; these landed since:"
+          git log "$prior..HEAD" --format='  %h %s'
+          echo "A mechanical fix needs only a fresh stamp; anything more needs a fresh review."
+        fi
+      } >&2
+      exit 1
+    fi ;;
+  *) step "Skipping the review gate (SHIP_SKIP_REVIEW=$SHIP_SKIP_REVIEW)" ;;
+esac
+
+repo_slug="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
+pr_url="$(gh pr list --head "$branch" --state open --json url --jq '.[0].url')"
+if [ -z "$pr_url" ] && [ -z "$body_file" ]; then
+  die "no PR is open for $branch yet, so it needs a body. Write one with the /pr skill
+(Summary / Evidence / Merge Danger) to a scratch file, then:
+
+  bin/ship --body-file <path>"
+fi
+
+want_node="$(tr -d '[:space:]v' < .nvmrc)"
+have_node="$(node -p 'process.versions.node.split(".")[0]')"
+[ "$have_node" = "$want_node" ] \
+  || die "node $(node -v) is not the Node $want_node in .nvmrc that CI runs, so a local pass
+would not predict CI. Switch versions (nvm use / fnm use), then re-run."
+
+step "Running the CI checks locally"
+npm run --silent typecheck
+npm run --silent lint
+npm run --silent format:check
+npm run --silent test:coverage
+npm run --silent audit:security
+
+if [ -n "${GH_TOKEN:-}" ]; then
+  push_remote="https://x-access-token:${GH_TOKEN}@github.com/${repo_slug}.git"
+else
+  push_remote="origin"
+fi
+
+step "Pushing $branch"
+git push "$push_remote" "HEAD:refs/heads/$branch" 2>&1 | sed "s/${GH_TOKEN:-__no_token__}/***/g"
+
+step "Verifying $branch landed on GitHub"
+remote_sha="$(git ls-remote "$push_remote" "refs/heads/$branch" 2>/dev/null | awk 'NR==1 {print $1}')"
+[ "$remote_sha" = "$head_sha" ] \
+  || die "push reported success, but refs/heads/$branch on GitHub is at ${remote_sha:-nothing}, not $head_sha."
+
+step "Opening a draft PR against $base"
+if [ -n "$pr_url" ]; then
+  echo "PR already open — not creating a duplicate."
+  [ -z "$body_file" ] || echo "Its body was left alone; update it with: gh pr edit $branch --body-file <path>"
+else
+  pr_body="Closes #$issue
+
+$(grep -Eiv "^(closes|fixes|resolves) #$issue\$" "$body_file" || true)"
+  pr_url="$(gh pr create --base "$base" --head "$branch" --draft --fill --body "$pr_body")"
+fi
+
+echo
+echo "$pr_url"
+echo "Wait for CI, then mark ready:  gh pr checks $branch --watch && gh pr ready $branch"

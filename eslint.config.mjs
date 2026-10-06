@@ -27,6 +27,14 @@ const eslintConfig = [
       'security/detect-object-injection': 'off',
     },
   },
+  {
+    // The bin/ script tests drive real git in a fresh mkdtemp sandbox: every path is
+    // derived from that temp dir, never from input.
+    files: ['bin/**/*.ts'],
+    rules: {
+      'security/detect-non-literal-fs-filename': 'off',
+    },
+  },
 ]
 
 export default eslintConfig

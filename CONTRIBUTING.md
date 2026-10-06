@@ -2,10 +2,17 @@
 
 ## Development workflow
 
-1. Create a feature branch off `main`
-2. Make your changes; keep commits focused and [conventionally prefixed](#commit-messages)
-3. Ensure all checks pass locally before opening a PR (see [Pre-PR checklist](#pre-pr-checklist))
-4. Open a PR against `main` — CI must be green before merging
+Every change ships against a GitHub issue with falsifiable acceptance criteria.
+
+1. Branch from the issue: `bin/worktree issue <n>` (an issue-linked branch in its own worktree under `../demo-buyer-site-worktrees/`), or `gh issue develop <n> --base main --checkout` to stay in your checkout
+2. Build it test-first; keep commits focused, [conventionally prefixed](#commit-messages), with a `Refs #<n>` footer
+3. Re-check every acceptance criterion against what you built
+4. Review: `/mattpocock-skills:code-review` and `/security-review` (Claude Code), then `bin/ship --reviewed`
+5. Write the PR body — **Summary** (a small visual: call tree, component tree or diff sketch), **Evidence** (before/after test run or screenshots), **Merge Danger** (one- or two-way door, blast radius); agents use the `/pr` skill
+6. `bin/ship --body-file <path>` — runs the [pre-PR checklist](#pre-pr-checklist), pushes, opens a draft PR with `Closes #<n>` above your body
+7. Mark ready once CI is green; a human merges. `bin/worktree land <n>` removes the worktree once the PR closes
+
+Agents: `/issue <n>` runs this whole flow — see `.claude/skills/issue/SKILL.md`.
 
 ## Pre-PR checklist
 
