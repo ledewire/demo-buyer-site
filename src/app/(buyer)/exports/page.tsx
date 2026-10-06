@@ -61,7 +61,7 @@ export default async function ExportsPage() {
           </div>
           <Link
             href="/catalog"
-            className="px-4 py-2 rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+            className="px-4 py-2 rounded-md shadow-xs text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
           >
             New export
           </Link>

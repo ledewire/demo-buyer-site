@@ -36,7 +36,7 @@ export default async function CatalogPage({ searchParams }: Props) {
             type="search"
             defaultValue={q}
             placeholder="Publication name or domain"
-            className="w-full sm:w-80 rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            className="w-full sm:w-80 rounded-md border-gray-300 text-sm shadow-xs focus:border-indigo-500 focus:ring-indigo-500"
           />
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input
@@ -44,7 +44,7 @@ export default async function CatalogPage({ searchParams }: Props) {
               name="licensable"
               value="1"
               defaultChecked={licensableOnly}
-              className="rounded border-gray-300 text-indigo-600"
+              className="rounded-sm border-gray-300 text-indigo-600"
             />
             Bulk licensable only
           </label>

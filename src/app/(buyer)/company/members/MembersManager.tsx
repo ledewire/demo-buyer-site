@@ -119,7 +119,7 @@ export default function MembersManager({
       {error && (
         <p
           role="alert"
-          className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"
+          className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-sm px-3 py-2"
         >
           {error}
         </p>
@@ -246,7 +246,7 @@ export default function MembersManager({
               required
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
-              className="mt-1 block w-64 rounded-md border-gray-300 shadow-sm text-sm"
+              className="mt-1 block w-64 rounded-md border-gray-300 shadow-xs text-sm"
             />
           </div>
           <div>
@@ -257,7 +257,7 @@ export default function MembersManager({
               id="invite-role"
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value as Role)}
-              className="mt-1 block rounded-md border-gray-300 shadow-sm text-sm"
+              className="mt-1 block rounded-md border-gray-300 shadow-xs text-sm"
             >
               <option value="member">Member</option>
               <option value="admin">Admin</option>
@@ -266,7 +266,7 @@ export default function MembersManager({
           <button
             type="submit"
             disabled={inviting}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
           >
             {inviting ? 'Sending…' : 'Send invitation'}
           </button>

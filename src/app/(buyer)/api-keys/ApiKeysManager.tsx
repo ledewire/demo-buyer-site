@@ -77,7 +77,7 @@ export default function ApiKeysManager({ initialKeys }: Props) {
       {error && (
         <p
           role="alert"
-          className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"
+          className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-sm px-3 py-2"
         >
           {error}
         </p>
@@ -108,7 +108,7 @@ export default function ApiKeysManager({ initialKeys }: Props) {
       {!showCreateForm ? (
         <button
           onClick={() => setShowCreateForm(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
         >
           Create API key
         </button>
@@ -129,7 +129,7 @@ export default function ApiKeysManager({ initialKeys }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. my-rag-agent"
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
           </div>
           <div>
@@ -148,7 +148,7 @@ export default function ApiKeysManager({ initialKeys }: Props) {
                 value={spendingLimit}
                 onChange={(e) => setSpendingLimit(e.target.value)}
                 placeholder="No limit"
-                className="pl-7 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="pl-7 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
             </div>
           </div>
@@ -156,7 +156,7 @@ export default function ApiKeysManager({ initialKeys }: Props) {
             <button
               type="submit"
               disabled={creating}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+              className="px-4 py-2 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
             >
               {creating ? 'Creating…' : 'Create'}
             </button>

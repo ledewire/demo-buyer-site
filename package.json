@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -35,16 +36,23 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.1",
-    "@vitest/coverage-v8": "^2.1.9",
-    "autoprefixer": "^10.4.20",
+    "@vitest/coverage-v8": "^5.0.3",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.2.0",
     "eslint-plugin-security": "^3.0.1",
     "jsdom": "^28.1.0",
     "postcss": "^8.5.0",
     "prettier": "^3.5.0",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.8.0",
-    "vitest": "^2.1.9"
+    "vitest": "^5.0.3"
+  },
+  "overrides": {
+    "@next/eslint-plugin-next": {
+      "fast-glob": "npm:tinyglobby@^0.2.15"
+    },
+    "next": {
+      "postcss": "$postcss"
+    }
   }
 }

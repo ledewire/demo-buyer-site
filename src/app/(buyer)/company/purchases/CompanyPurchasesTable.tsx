@@ -25,7 +25,7 @@ const KIND_LABELS: Record<CompanyPurchase['kind'], string> = {
 }
 
 const TH = 'px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
-const TAG = 'ml-2 text-xs font-medium px-1.5 py-0.5 rounded text-gray-600 bg-gray-100'
+const TAG = 'ml-2 text-xs font-medium px-1.5 py-0.5 rounded-sm text-gray-600 bg-gray-100'
 
 export default function CompanyPurchasesTable({
   purchases,

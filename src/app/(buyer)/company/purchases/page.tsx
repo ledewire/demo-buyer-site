@@ -15,7 +15,7 @@ function pageHref(filters: Filters, page: number): string {
   return `/company/purchases?${qs.toString()}`
 }
 
-const INPUT = 'mt-1 block rounded-md border-gray-300 shadow-sm text-sm'
+const INPUT = 'mt-1 block rounded-md border-gray-300 shadow-xs text-sm'
 const LABEL = 'block text-sm font-medium text-gray-700'
 
 export default async function CompanyPurchasesPage({
@@ -100,7 +100,7 @@ export default async function CompanyPurchasesPage({
           </div>
           <button
             type="submit"
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
           >
             Apply
           </button>

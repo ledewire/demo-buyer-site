@@ -76,7 +76,7 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
   return (
     <div className="space-y-4">
       {!bulkLicensable && (
-        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-sm px-3 py-2">
           This publication isn&apos;t available for bulk licensing. You can browse its articles but
           not add them to an export.
         </p>
@@ -92,7 +92,7 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
             type="date"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="mt-1 rounded-md border-gray-300 text-sm shadow-sm"
+            className="mt-1 rounded-md border-gray-300 text-sm shadow-xs"
           />
         </div>
         <div>
@@ -104,7 +104,7 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
             type="date"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="mt-1 rounded-md border-gray-300 text-sm shadow-sm"
+            className="mt-1 rounded-md border-gray-300 text-sm shadow-xs"
           />
         </div>
         <button
@@ -119,14 +119,14 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
       {error && (
         <p
           role="alert"
-          className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2"
+          className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-sm px-3 py-2"
         >
           {error}
         </p>
       )}
 
       {dateFilter === 'unsupported' && (
-        <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded px-3 py-2">
+        <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-sm px-3 py-2">
           This publication has no modification dates; the date range was ignored.
         </p>
       )}
@@ -140,7 +140,7 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
               placeholder="Filter by URL"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="w-full sm:w-72 rounded-md border-gray-300 text-sm shadow-sm"
+              className="w-full sm:w-72 rounded-md border-gray-300 text-sm shadow-xs"
             />
             <div className="flex items-center gap-4 text-sm">
               <span className="text-gray-600">{selectedHere} selected from this publication</span>
@@ -194,7 +194,7 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
                             onChange={() =>
                               checked ? selection.remove(w.url) : selection.add(toSelected(w))
                             }
-                            className="rounded border-gray-300 text-indigo-600 disabled:opacity-40"
+                            className="rounded-sm border-gray-300 text-indigo-600 disabled:opacity-40"
                           />
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-800 break-all">
