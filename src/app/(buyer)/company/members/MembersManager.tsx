@@ -120,15 +120,15 @@ export default function MembersManager({
   const people = members.filter((m) => m.kind !== 'machine')
   const machines = members.filter((m) => m.kind === 'machine')
 
-  function renderTable(list: CompanyMember[], showRole: boolean, empty: string) {
-    if (list.length === 0) return <p className="text-sm text-gray-500">{empty}</p>
+  function renderTable(list: CompanyMember[], showRole: boolean, emptyMessage: string) {
+    if (list.length === 0) return <p className="text-sm text-gray-500">{emptyMessage}</p>
     return (
       <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className={TH}>Name</th>
-              <th className={TH}>Email</th>
+              <th className={TH}>{showRole ? 'Email' : 'Type'}</th>
               {showRole && <th className={TH}>Role</th>}
               <th className={TH}>Daily spend cap</th>
               <th className={TH}>Joined</th>

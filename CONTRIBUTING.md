@@ -44,7 +44,7 @@ docs:     documentation only
 
 - **co-locate tests** — test files live next to the file they test (e.g. `foo.test.ts` beside `foo.ts`)
 - **one test file per module** — avoid splitting a module's tests across multiple files
-- **mock at the boundary** — mock `@/lib/ledewire` and `@/lib/session` in route and page tests; don't mock `@ledewire/node` internals unless testing the client adapter itself
+- **mock at the boundary** — mock `@/lib/ledewire` and `@/lib/session` in route tests (pages: see _Page-level tests_ below); don't mock `@ledewire/node` internals unless testing the client adapter itself
 - **`vi.mock` factory restriction** — Vitest hoists `vi.mock(...)` calls above variable declarations. Factories must not reference outer `const`/`let` variables. Configure mock return values in `beforeEach` via `vi.mocked(fn).mockResolvedValue(...)` instead
 - **email inputs** — use `fireEvent.change` (not `userEvent.type`) for `type="email"` inputs; jsdom 28 sanitizes email values on each keystroke which breaks `userEvent.type`
 - **`as never` casts on mock return values** — route handler tests use `vi.mocked(createBuyerClient).mockResolvedValue({...} as never)` to avoid needing full `@ledewire/node` client type shapes in tests
