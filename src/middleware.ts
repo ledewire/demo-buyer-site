@@ -20,5 +20,6 @@ export const config = {
     '/catalog/:path*',
     '/exports/:path*',
     '/company/:path*',
+    '/join/:path*',
   ],
 }

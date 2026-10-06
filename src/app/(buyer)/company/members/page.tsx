@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { createBuyerClient } from '@/lib/ledewire'
@@ -11,7 +12,14 @@ export default async function CompanyMembersPage() {
   try {
     const membership = await getCompanyMembership()
     if (!membership) {
-      return <p className="text-sm text-gray-500">You&apos;re not part of a Company.</p>
+      return (
+        <p className="text-sm text-gray-500">
+          You&apos;re not part of a Company. Have an invitation?{' '}
+          <Link href="/join" className="text-indigo-600 hover:text-indigo-800">
+            Join a Company
+          </Link>
+        </p>
+      )
     }
     if (membership.role !== 'admin') {
       return <p className="text-sm text-gray-500">Only Company admins can manage members.</p>

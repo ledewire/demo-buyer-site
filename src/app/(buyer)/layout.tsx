@@ -3,7 +3,10 @@ import { getCompanyMembership } from '@/lib/company'
 
 export default async function BuyerLayout({ children }: { children: React.ReactNode }) {
   // The nav is chrome — a failed membership lookup must not take down the page.
-  const membership = await getCompanyMembership().catch(() => null)
+  const membership = await getCompanyMembership().catch((err) => {
+    console.error('[layout] Company membership lookup failed', err)
+    return null
+  })
   return (
     <div className="min-h-screen flex flex-col">
       <NavBar isCompanyAdmin={membership?.role === 'admin'} />
