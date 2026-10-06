@@ -13,5 +13,8 @@ export const mockAuth = mockClient.auth
 export const mockWallet = mockClient.wallet
 export const mockPurchases = mockClient.purchases
 export const mockUserApiKeys = mockClient.user.apiKeys
+export const mockCompany = mockClient.company
+export const mockPublications = mockClient.publications
+export const mockAcquisitions = mockClient.acquisitions
 
 export const createBuyerClient = vi.fn().mockResolvedValue(mockClient)

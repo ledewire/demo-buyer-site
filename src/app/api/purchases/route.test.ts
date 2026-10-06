@@ -39,6 +39,13 @@ describe('GET /api/purchases', () => {
     expect(await res.json()).toEqual(purchases)
   })
 
+  it('unwraps a paginated envelope', async () => {
+    const purchases = [{ id: 'p1', content_id: 'c1' }]
+    mockPurchasesList.mockResolvedValue({ data: purchases, pagination: { total: 1 } })
+    const res = await GET()
+    expect(await res.json()).toEqual(purchases)
+  })
+
   it('returns 401 on AuthError', async () => {
     mockPurchasesList.mockRejectedValue(new AuthError('expired'))
     const res = await GET()

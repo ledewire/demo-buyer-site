@@ -8,6 +8,8 @@ const REASON_LABELS: Record<WalletTransactionItem['reason'], string> = {
   wallet_funding: 'Wallet funding',
   purchase: 'Purchase',
   refund: 'Refund',
+  bulk_acquisition: 'Bulk export',
+  bulk_hold: 'Bulk export hold',
 }
 
 const STATUS_CLASSES: Record<WalletTransactionItem['status'], string> = {
@@ -15,6 +17,11 @@ const STATUS_CLASSES: Record<WalletTransactionItem['status'], string> = {
   pending: 'text-yellow-700 bg-yellow-50',
   failed: 'text-red-700 bg-red-50',
   cancelled: 'text-gray-600 bg-gray-100',
+  refunded: 'text-gray-600 bg-gray-100',
+  reverted: 'text-gray-600 bg-gray-100',
+  settled: 'text-green-700 bg-green-50',
+  authorized: 'text-blue-700 bg-blue-50',
+  acquiring: 'text-blue-700 bg-blue-50',
 }
 
 export default function TransactionList({ transactions }: Props) {

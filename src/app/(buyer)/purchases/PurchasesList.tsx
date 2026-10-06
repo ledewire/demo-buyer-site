@@ -1,4 +1,5 @@
 import type { PurchaseResponse } from '@ledewire/node'
+import { formatCents } from '@/lib/format'
 
 interface Props {
   purchases: PurchaseResponse[]
@@ -9,6 +10,7 @@ const STATUS_CLASSES: Record<string, string> = {
   pending: 'text-yellow-700 bg-yellow-50',
   failed: 'text-red-700 bg-red-50',
   refunded: 'text-gray-600 bg-gray-100',
+  reverted: 'text-gray-600 bg-gray-100',
 }
 
 export default function PurchasesList({ purchases }: Props) {
@@ -49,7 +51,7 @@ export default function PurchasesList({ purchases }: Props) {
               <td className="px-4 py-3 text-sm text-gray-800">{p.content.title}</td>
               <td className="px-4 py-3 text-sm text-gray-600">{p.seller.name}</td>
               <td className="px-4 py-3 text-sm font-medium text-gray-800">
-                ${(p.amount_cents / 100).toFixed(2)}
+                {formatCents(p.amount_cents)}
               </td>
               <td className="px-4 py-3 text-sm text-gray-500">
                 {new Date(p.timestamp).toLocaleDateString()}

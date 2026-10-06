@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { AuthError, LedewireError } from '@ledewire/node'
+import { listItems } from '@/lib/list-items'
 
 export async function GET() {
   const authResult = await requireAuthForRoute()
@@ -9,7 +10,7 @@ export async function GET() {
 
   try {
     const client = await createBuyerClient()
-    const purchases = await client.purchases.list()
+    const purchases = listItems(await client.purchases.list())
     return NextResponse.json(purchases)
   } catch (err) {
     if (err instanceof AuthError)

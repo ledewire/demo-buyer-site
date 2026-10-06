@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { AuthError, LedewireError } from '@ledewire/node'
+import Link from 'next/link'
+import { getCompanyMembership } from '@/lib/company'
+import { listItems } from '@/lib/list-items'
 import PurchasesList from './PurchasesList'
 
 export default async function PurchasesPage() {
@@ -9,10 +12,30 @@ export default async function PurchasesPage() {
 
   try {
     const client = await createBuyerClient()
-    const purchases = await client.purchases.list()
+    const [purchases, membership] = await Promise.all([
+      client.purchases.list().then(listItems),
+      getCompanyMembership(),
+    ])
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">Purchases</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Purchases</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Individual articles you&apos;ve bought. Bulk exports are listed under{' '}
+            <Link href="/exports" className="text-indigo-600 hover:text-indigo-800">
+              Exports
+            </Link>
+            {membership?.role === 'admin' && (
+              <>
+                , and everything {membership.company_name} paid for is in{' '}
+                <Link href="/company/purchases" className="text-indigo-600 hover:text-indigo-800">
+                  Company Purchases
+                </Link>
+              </>
+            )}
+            .
+          </p>
+        </div>
         <PurchasesList purchases={purchases} />
       </div>
     )

@@ -60,7 +60,7 @@ export default function GoogleSignInButton({ googleClientId, onError, onLoadingC
       })
       if (btnRef.current) {
         window.google?.accounts.id.renderButton(btnRef.current, {
-          theme: 'outline',
+          theme: 'outline-solid',
           size: 'large',
           width: 320,
         })
