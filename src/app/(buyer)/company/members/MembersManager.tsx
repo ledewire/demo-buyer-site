@@ -2,9 +2,8 @@
 
 import { useState } from 'react'
 import type { CompanyInvitation, CompanyMember } from '@ledewire/node'
-import { formatCents, formatDate } from '@/lib/format'
-
-type Role = CompanyMember['role']
+import { formatDate } from '@/lib/format'
+import MemberRow, { type Role } from './MemberRow'
 
 interface Props {
   initialMembers: CompanyMember[]
@@ -69,7 +68,11 @@ export default function MembersManager({
   }
 
   async function handleRemove(member: CompanyMember) {
-    if (!confirm(`Remove ${member.name} from the Company?`)) return
+    const question =
+      member.kind === 'machine'
+        ? `Remove ${member.name}? This is permanent: the machine is deactivated and removal revokes all of its keys.`
+        : `Remove ${member.name} from the Company?`
+    if (!confirm(question)) return
     setError(null)
     setBusy(member.id)
     try {
@@ -114,6 +117,51 @@ export default function MembersManager({
     }
   }
 
+  const people = members.filter((m) => m.kind !== 'machine')
+  const machines = members.filter((m) => m.kind === 'machine')
+
+  function renderTable(list: CompanyMember[], showRole: boolean, empty: string) {
+    if (list.length === 0) return <p className="text-sm text-gray-500">{empty}</p>
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className={TH}>Name</th>
+              <th className={TH}>Email</th>
+              {showRole && <th className={TH}>Role</th>}
+              <th className={TH}>Daily spend cap</th>
+              <th className={TH}>Joined</th>
+              <th className={TH}>
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {list.map((m) => (
+              <MemberRow
+                key={m.id}
+                member={m}
+                showRole={showRole}
+                isCurrent={m.id === currentMembershipId}
+                busy={busy === m.id}
+                capDraft={capDrafts[m.id]}
+                onRoleChange={(role) => updateMember(m.id, { role })}
+                onCapDraftChange={(draft) =>
+                  setCapDrafts(({ [m.id]: _, ...rest }) =>
+                    draft === undefined ? rest : { ...rest, [m.id]: draft },
+                  )
+                }
+                onSaveCap={() => handleSaveCap(m)}
+                onRemove={() => handleRemove(m)}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
       {error && (
@@ -125,116 +173,12 @@ export default function MembersManager({
         </p>
       )}
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className={TH}>Name</th>
-              <th className={TH}>Email</th>
-              <th className={TH}>Role</th>
-              <th className={TH}>Daily spend cap</th>
-              <th className={TH}>Joined</th>
-              <th className={TH}>
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {members.map((m) => {
-              const disabled = busy === m.id
-              const draft = capDrafts[m.id]
-              return (
-                <tr key={m.id}>
-                  <td className="px-4 py-3 text-sm text-gray-800">
-                    {m.name}
-                    {m.id === currentMembershipId && (
-                      <span className="ml-1 text-xs text-gray-400">(you)</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {m.kind === 'machine' ? (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full text-gray-600 bg-gray-100">
-                        Machine user
-                      </span>
-                    ) : (
-                      m.email
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <select
-                      aria-label={`Role for ${m.name}`}
-                      value={m.role}
-                      disabled={disabled}
-                      onChange={(e) => updateMember(m.id, { role: e.target.value as Role })}
-                      className="block rounded-md border-gray-300 text-sm py-1"
-                    >
-                      <option value="member">Member</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-800">
-                    {draft === undefined ? (
-                      <button
-                        onClick={() =>
-                          setCapDrafts((prev) => ({
-                            ...prev,
-                            [m.id]: (m.daily_spend_limit_cents / 100).toFixed(2),
-                          }))
-                        }
-                        className="hover:text-indigo-700 underline decoration-dotted"
-                        aria-label={`Edit daily spend cap for ${m.name}`}
-                      >
-                        {formatCents(m.daily_spend_limit_cents)}
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500">$</span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          aria-label={`Daily spend cap for ${m.name} (USD)`}
-                          value={draft}
-                          onChange={(e) =>
-                            setCapDrafts((prev) => ({ ...prev, [m.id]: e.target.value }))
-                          }
-                          className="block w-24 rounded-md border-gray-300 text-sm py-1"
-                        />
-                        <button
-                          onClick={() => handleSaveCap(m)}
-                          disabled={disabled}
-                          className="text-sm font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
-                        >
-                          Save
-                        </button>
-                        <button
-                          onClick={() => setCapDrafts(({ [m.id]: _, ...rest }) => rest)}
-                          className="text-sm text-gray-500 hover:text-gray-700"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{formatDate(m.joined_at)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => handleRemove(m)}
-                      disabled={disabled}
-                      className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
-                    >
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-800">Invite a member</h2>
+      <section aria-labelledby="people-heading" className="space-y-4">
+        <h2 id="people-heading" className="text-lg font-semibold text-gray-800">
+          People
+        </h2>
+        {renderTable(people, true, 'No people yet.')}
+        <h3 className="text-sm font-semibold text-gray-900">Invite a member</h3>
         <form onSubmit={handleInvite} className="flex flex-wrap items-end gap-3">
           <div>
             <label htmlFor="invite-email" className="block text-sm font-medium text-gray-700">
@@ -287,7 +231,14 @@ export default function MembersManager({
             ))}
           </ul>
         )}
-      </div>
+      </section>
+
+      <section aria-labelledby="machines-heading" className="space-y-4">
+        <h2 id="machines-heading" className="text-lg font-semibold text-gray-800">
+          Machines
+        </h2>
+        {renderTable(machines, false, 'No machine users yet.')}
+      </section>
     </div>
   )
 }
