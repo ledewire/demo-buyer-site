@@ -44,10 +44,37 @@ docs:     documentation only
 
 - **co-locate tests** — test files live next to the file they test (e.g. `foo.test.ts` beside `foo.ts`)
 - **one test file per module** — avoid splitting a module's tests across multiple files
-- **mock at the boundary** — mock `@/lib/ledewire` and `@/lib/session` in route and page tests; don't mock `@ledewire/node` internals unless testing the client adapter itself
+- **mock at the boundary** — mock `@/lib/ledewire` and `@/lib/session` in route tests (pages: see _Page-level tests_ below); don't mock `@ledewire/node` internals unless testing the client adapter itself
 - **`vi.mock` factory restriction** — Vitest hoists `vi.mock(...)` calls above variable declarations. Factories must not reference outer `const`/`let` variables. Configure mock return values in `beforeEach` via `vi.mocked(fn).mockResolvedValue(...)` instead
 - **email inputs** — use `fireEvent.change` (not `userEvent.type`) for `type="email"` inputs; jsdom 28 sanitizes email values on each keystroke which breaks `userEvent.type`
 - **`as never` casts on mock return values** — route handler tests use `vi.mocked(createBuyerClient).mockResolvedValue({...} as never)` to avoid needing full `@ledewire/node` client type shapes in tests
+
+### Page-level tests
+
+An async Server Component page is a function that returns JSX, so a test awaits it and renders the
+result. `src/app/(buyer)/company/members/page.test.tsx` is the reference.
+
+```tsx
+vi.mock('next/navigation', () => ({
+  redirect: vi.fn(() => {
+    throw new Error('NEXT_REDIRECT') // like Next, stop the page where it redirects
+  }),
+  useRouter: vi.fn(() => ({ refresh: vi.fn(), push: vi.fn() })), // only if a client child calls it
+}))
+vi.mock('@/lib/auth', () => ({ requireAuth: vi.fn() }))
+vi.mock('@/lib/company', () => ({ getCompanyMembership: vi.fn() }))
+vi.mock('@/lib/ledewire', () => import('@/__mocks__/ledewire-client'))
+
+render(await CompanyMembersPage()) // then assert with screen, as for any component
+await expect(CompanyMembersPage()).rejects.toThrow('NEXT_REDIRECT') // a redirect
+```
+
+- **mock every server-only boundary** — `@/lib/auth`, `@/lib/company`, `@/lib/ledewire` and
+  `next/navigation`; the page's client children render for real
+- **one test per access state** — no Company, non-admin, admin, `AuthError` → redirect,
+  `LedewireError` → inline message
+- **pages that take params** — pass them as the page receives them:
+  `await Page({ params: Promise.resolve({ id: 'mem-1' }), searchParams: Promise.resolve({}) })`
 
 ## Adding a new route handler
 

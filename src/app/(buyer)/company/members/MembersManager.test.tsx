@@ -63,6 +63,49 @@ describe('MembersManager', () => {
     expect(screen.getAllByText('$10.00')).toHaveLength(2)
   })
 
+  it('renders people and machines in separate sections', () => {
+    const agent = makeMember({
+      id: 'mem-3',
+      user_id: 'user-3',
+      kind: 'machine',
+      email: null,
+      name: 'research-agent',
+      role: 'member',
+    })
+    renderManager([makeMember(), agent, bob])
+    const people = screen.getByRole('region', { name: 'People' })
+    const machines = screen.getByRole('region', { name: 'Machines' })
+    expect(within(people).getByText('Ada Admin')).toBeInTheDocument()
+    expect(within(people).getByText('Bob')).toBeInTheDocument()
+    expect(within(people).queryByText('research-agent')).not.toBeInTheDocument()
+    expect(within(machines).getByText('research-agent')).toBeInTheDocument()
+    expect(within(machines).queryByText('Ada Admin')).not.toBeInTheDocument()
+    expect(within(machines).queryByText('Bob')).not.toBeInTheDocument()
+  })
+
+  it('offers a role control for people but not machines', () => {
+    renderManager([
+      bob,
+      makeMember({ id: 'mem-3', kind: 'machine', email: null, name: 'research-agent' }),
+    ])
+    expect(screen.getByLabelText('Role for Bob')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Role for research-agent')).not.toBeInTheDocument()
+  })
+
+  it('shows an empty state for a section with no members', () => {
+    renderManager()
+    const machines = screen.getByRole('region', { name: 'Machines' })
+    expect(within(machines).getByText('No machine users yet.')).toBeInTheDocument()
+    expect(within(machines).queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('shows an empty People section when every member is a machine', () => {
+    renderManager([makeMember({ kind: 'machine', email: null, name: 'research-agent' })])
+    const people = screen.getByRole('region', { name: 'People' })
+    expect(within(people).getByText('No people yet.')).toBeInTheDocument()
+    expect(within(people).queryByRole('table')).not.toBeInTheDocument()
+  })
+
   it('labels machine users', () => {
     renderManager([makeMember({ kind: 'machine', email: null, name: 'research-agent' })])
     expect(screen.getByText('Machine user')).toBeInTheDocument()
@@ -133,6 +176,30 @@ describe('MembersManager', () => {
     await userEvent.click(within(row).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(screen.queryByText('Bob')).not.toBeInTheDocument())
     expect(global.fetch).toHaveBeenCalledWith('/api/company/members/mem-2', { method: 'DELETE' })
+  })
+
+  it('asks with the existing wording before removing a person', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    global.fetch = vi.fn()
+    renderManager()
+    const row = screen.getByText('Bob').closest('tr')!
+    await userEvent.click(within(row).getByRole('button', { name: 'Remove' }))
+    expect(confirm).toHaveBeenCalledWith('Remove Bob from the Company?')
+  })
+
+  it('warns that removing a machine is permanent and revokes its keys', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    mockFetch(200, { ok: true })
+    renderManager([
+      makeMember(),
+      makeMember({ id: 'mem-3', kind: 'machine', email: null, name: 'research-agent' }),
+    ])
+    const row = screen.getByText('research-agent').closest('tr')!
+    await userEvent.click(within(row).getByRole('button', { name: 'Remove' }))
+    expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/permanent/i))
+    expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/revokes all of its keys/i))
+    await waitFor(() => expect(screen.queryByText('research-agent')).not.toBeInTheDocument())
+    expect(global.fetch).toHaveBeenCalledWith('/api/company/members/mem-3', { method: 'DELETE' })
   })
 
   it('does not remove when confirmation is declined', async () => {
