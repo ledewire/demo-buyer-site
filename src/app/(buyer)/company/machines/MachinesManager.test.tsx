@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useRouter } from 'next/navigation'
 import MachinesManager from './MachinesManager'
 import type { CompanyMember } from '@ledewire/node'
 import type { MemberActivity } from '@/lib/company-activity'
 
+vi.mock('next/navigation', () => ({ useRouter: vi.fn() }))
+
 const mockRefresh = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: mockRefresh }) }))
 
 function makeMachine(overrides: Partial<CompanyMember> = {}): CompanyMember {
   return {
@@ -43,6 +45,7 @@ describe('MachinesManager', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     mockRefresh.mockReset()
+    vi.mocked(useRouter).mockReturnValue({ refresh: mockRefresh } as never)
   })
 
   it('labels machine users and offers no role control', () => {

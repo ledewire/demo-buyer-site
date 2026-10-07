@@ -41,7 +41,7 @@ export default function MachinesManager({ initialMachines, currentMembershipId, 
       if (!res.ok) {
         setError(data.error ?? 'Failed to add machine user')
       } else {
-        // The API returns a Machine user, not a membership, so reload the members list.
+        // The API returns a Machine user, not a membership, so reload the page data to list it.
         setMachineName('')
         setMachineDescription('')
         router.refresh()

@@ -5,9 +5,6 @@ import PeopleManager from './PeopleManager'
 import type { CompanyInvitation, CompanyMember } from '@ledewire/node'
 import type { MemberActivity } from '@/lib/company-activity'
 
-const mockRefresh = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: mockRefresh }) }))
-
 function makeMember(overrides: Partial<CompanyMember> = {}): CompanyMember {
   return {
     id: 'mem-1',
@@ -66,7 +63,6 @@ function rowFor(name: string) {
 describe('PeopleManager', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    mockRefresh.mockReset()
   })
 
   it('renders members with their caps and marks the viewer', () => {

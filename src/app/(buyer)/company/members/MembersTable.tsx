@@ -31,7 +31,7 @@ export default function MembersTable({
   activity,
 }: Props) {
   const [members, setMembers] = useState(initialMembers)
-  // Take fresh members when the page data is refreshed (e.g. after adding a machine).
+  // Take fresh members when the page data is refreshed (e.g. after the parent adds one).
   const [prevInitialMembers, setPrevInitialMembers] = useState(initialMembers)
   if (initialMembers !== prevInitialMembers) {
     setPrevInitialMembers(initialMembers)
