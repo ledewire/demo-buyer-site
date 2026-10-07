@@ -29,3 +29,20 @@ git push https://x-access-token:$GH_TOKEN@github.com/ledewire/demo-buyer-site.gi
 `gh pr create` and other `gh`/API calls pick up `GH_TOKEN` automatically — no change needed there.
 
 If `GH_TOKEN` is not set, push normally via `origin` (SSH) as usual.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `ledewire/demo-buyer-site`, via `gh`. See
+[`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+The five default triage labels, each named for its role. See
+[`docs/agents/triage-labels.md`](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context: one root `CONTEXT.md` and `docs/adr/`, created on first use. See
+[`docs/agents/domain.md`](docs/agents/domain.md).
