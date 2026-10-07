@@ -137,7 +137,7 @@ export interface MemberSpend {
  * days: one `company.spend.list` per window, filtered to `membershipId`. A
  * member with no spend in a window reads as 0.
  */
-export async function getMemberActivity(
+export async function getMemberSpend(
   membershipId: string,
   now: Date = new Date(),
 ): Promise<MemberSpend> {

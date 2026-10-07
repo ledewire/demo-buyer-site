@@ -156,6 +156,26 @@ describe('MemberDetailPage', () => {
     )
   })
 
+  it('links back to the first page from a page past the last', async () => {
+    mockCompany.purchases.list.mockResolvedValue({
+      data: [],
+      pagination: {
+        current_page: 99,
+        per_page: 25,
+        total: 3,
+        total_pages: 1,
+        next_page: null,
+        prev_page: null,
+      },
+    } as never)
+    await renderPage('mem-2', { page: '99' })
+    expect(screen.queryByText("research-agent hasn't bought anything yet.")).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Go to the first page' })).toHaveAttribute(
+      'href',
+      '/company/members/mem-2',
+    )
+  })
+
   it('shows no page links for a single page of purchases', async () => {
     await renderPage()
     expect(screen.queryByRole('link', { name: 'Next →' })).not.toBeInTheDocument()

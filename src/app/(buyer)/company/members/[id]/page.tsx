@@ -4,10 +4,12 @@ import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { getCompanyMembership } from '@/lib/company'
-import { getMemberActivity } from '@/lib/company-activity'
+import { getMemberSpend } from '@/lib/company-activity'
 import { formatCents } from '@/lib/format'
 import { AuthError, LedewireError } from '@ledewire/node'
+import NotInCompany from '../../NotInCompany'
 import CompanyPurchasesTable from '../../purchases/CompanyPurchasesTable'
+import Pagination from '../../purchases/Pagination'
 import { parseFilters, type SearchParams } from '../../purchases/filters'
 import MemberCapEditor from './MemberCapEditor'
 
@@ -40,14 +42,7 @@ export default async function MemberDetailPage({
   try {
     const membership = await getCompanyMembership()
     if (!membership) {
-      return (
-        <p className="text-sm text-gray-500">
-          You&apos;re not part of a Company. Have an invitation?{' '}
-          <Link href="/join" className="text-indigo-600 hover:text-indigo-800">
-            Join a Company
-          </Link>
-        </p>
-      )
+      return <NotInCompany />
     }
     if (membership.role !== 'admin') {
       return <p className="text-sm text-gray-500">Only Company admins can view members.</p>
@@ -68,10 +63,10 @@ export default async function MemberDetailPage({
     }
 
     const [activity, purchases] = await Promise.all([
-      getMemberActivity(member.id),
+      getMemberSpend(member.id),
       client.company.purchases.list({ member: member.id, page, per_page: PER_PAGE }),
     ])
-    const { pagination } = purchases
+    const pastLastPage = purchases.data.length === 0 && purchases.pagination.total > 0
 
     return (
       <div className="space-y-8">
@@ -123,36 +118,23 @@ export default async function MemberDetailPage({
               View in Company purchases
             </Link>
           </div>
-          <CompanyPurchasesTable
-            purchases={purchases.data}
-            emptyMessage={`${member.name} hasn't bought anything yet.`}
-          />
-          {pagination.total_pages > 1 && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">
-                Page {pagination.current_page} of {pagination.total_pages} · {pagination.total}{' '}
-                total
-              </span>
-              <div className="space-x-4">
-                {pagination.prev_page && (
-                  <Link
-                    href={`${memberPath}?page=${pagination.prev_page}`}
-                    className="text-indigo-600 hover:text-indigo-800"
-                  >
-                    ← Previous
-                  </Link>
-                )}
-                {pagination.next_page && (
-                  <Link
-                    href={`${memberPath}?page=${pagination.next_page}`}
-                    className="text-indigo-600 hover:text-indigo-800"
-                  >
-                    Next →
-                  </Link>
-                )}
-              </div>
-            </div>
+          {pastLastPage ? (
+            <p className="text-sm text-gray-500">
+              There are no purchases on this page.{' '}
+              <Link href={memberPath} className="text-indigo-600 hover:text-indigo-800">
+                Go to the first page
+              </Link>
+            </p>
+          ) : (
+            <CompanyPurchasesTable
+              purchases={purchases.data}
+              emptyMessage={`${member.name} hasn't bought anything yet.`}
+            />
           )}
+          <Pagination
+            pagination={purchases.pagination}
+            hrefFor={(n) => `${memberPath}?page=${n}`}
+          />
         </div>
       </div>
     )

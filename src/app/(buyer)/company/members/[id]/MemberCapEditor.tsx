@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import type { CompanyMember } from '@ledewire/node'
-import { formatCents } from '@/lib/format'
 import { INVALID_CAP_MESSAGE, parseCapCents } from '@/lib/spend-cap'
+import CapField from '../CapField'
+import CapUsage from '../CapUsage'
 
 interface Props {
   member: CompanyMember
@@ -59,49 +60,17 @@ export default function MemberCapEditor({ member: initialMember, todayCents }: P
       )}
       <div className="text-sm text-gray-800">
         <span className="text-gray-500">Daily spend cap: </span>
-        {draft === undefined ? (
-          <button
-            onClick={() => setDraft((cap / 100).toFixed(2))}
-            className="hover:text-indigo-700 underline decoration-dotted"
-            aria-label={`Edit daily spend cap for ${member.name}`}
-          >
-            {formatCents(cap)}
-          </button>
-        ) : (
-          <span className="inline-flex items-center gap-2">
-            <span className="text-gray-500">$</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              aria-label={`Daily spend cap for ${member.name} (USD)`}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              className="block w-24 rounded-md border-gray-300 text-sm py-1"
-            />
-            <button
-              onClick={handleSave}
-              disabled={busy}
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
-            >
-              Save
-            </button>
-            <button
-              onClick={() => setDraft(undefined)}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
-              Cancel
-            </button>
-          </span>
-        )}
+        <CapField
+          name={member.name}
+          capCents={cap}
+          draft={draft}
+          busy={busy}
+          onDraftChange={setDraft}
+          onSave={handleSave}
+        />
       </div>
-      <div className="flex items-center gap-2 text-sm text-gray-800">
-        <span>{`${formatCents(todayCents)} of ${formatCents(cap)} today`}</span>
-        {todayCents >= cap && (
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full text-red-700 bg-red-50">
-            At cap
-          </span>
-        )}
+      <div className="text-sm text-gray-800">
+        <CapUsage todayCents={todayCents} capCents={cap} />
       </div>
     </div>
   )

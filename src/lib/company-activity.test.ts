@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/ledewire', () => import('@/__mocks__/ledewire-client'))
 
-import { activityWindows, getCompanyActivity, getMemberActivity } from './company-activity'
+import { activityWindows, getCompanyActivity, getMemberSpend } from './company-activity'
 import { mockCompany, mockUserSpendCap } from '@/__mocks__/ledewire-client'
 
 // 02:00 UTC on 10 March is still 9 March (22:00 EDT) in New York.
@@ -135,7 +135,7 @@ describe('getCompanyActivity', () => {
   })
 })
 
-describe('getMemberActivity', () => {
+describe('getMemberSpend', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockUserSpendCap.get.mockResolvedValue({ spend_window_timezone: 'America/New_York' } as never)
@@ -151,7 +151,7 @@ describe('getMemberActivity', () => {
       data: [spendRow('mem-7', spendByFrom[from])],
     })) as never)
 
-    expect(await getMemberActivity('mem-7', NOW)).toEqual({
+    expect(await getMemberSpend('mem-7', NOW)).toEqual({
       todayCents: 320,
       last7Cents: 1400,
       last30Cents: 6000,
@@ -176,7 +176,7 @@ describe('getMemberActivity', () => {
 
   it('reads a member with no spend row as $0', async () => {
     mockCompany.spend.list.mockResolvedValue({ data: [] } as never)
-    expect(await getMemberActivity('mem-7', NOW)).toEqual({
+    expect(await getMemberSpend('mem-7', NOW)).toEqual({
       todayCents: 0,
       last7Cents: 0,
       last30Cents: 0,
