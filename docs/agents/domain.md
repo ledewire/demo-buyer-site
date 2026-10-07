@@ -12,6 +12,8 @@ If any of these files don't exist, **proceed silently**. Don't flag their absenc
 
 ## File structure
 
+**This repo is single-context.** The multi-context layout is shown for reference only.
+
 Single-context repo (most repos):
 
 ```

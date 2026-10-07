@@ -34,12 +34,15 @@ If `GH_TOKEN` is not set, push normally via `origin` (SSH) as usual.
 
 ### Issue tracker
 
-Issues live in GitHub Issues for `ledewire/demo-buyer-site`, via `gh`. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues for `ledewire/demo-buyer-site`, via `gh`. See
+[`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
 
 ### Triage labels
 
-The five default triage labels, each named for its role (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+The five default triage labels, each named for its role. See
+[`docs/agents/triage-labels.md`](docs/agents/triage-labels.md).
 
 ### Domain docs
 
-Single-context: one root `CONTEXT.md` and `docs/adr/`, created on first use. See `docs/agents/domain.md`.
+Single-context: one root `CONTEXT.md` and `docs/adr/`, created on first use. See
+[`docs/agents/domain.md`](docs/agents/domain.md).
