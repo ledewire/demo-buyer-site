@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import MachineKeyManager, { type MachineKey } from './MachineKeyManager'
+import MachineKeyManager, { type BuyerMachineKey, type McpMachineKey } from './MachineKeyManager'
 
 const API_PATH = '/api/company/machine-users/mu-1/buyer-keys'
+const MCP_API_PATH = '/api/company/machine-users/mu-1/mcp-keys'
 
-function makeKey(overrides: Partial<MachineKey> = {}): MachineKey {
+function makeKey(overrides: Partial<BuyerMachineKey> = {}): BuyerMachineKey {
   return {
     id: 'bk-1',
     name: 'production',
@@ -16,10 +17,24 @@ function makeKey(overrides: Partial<MachineKey> = {}): MachineKey {
   }
 }
 
-function renderManager(initialKeys: MachineKey[] = []) {
-  return render(
-    <MachineKeyManager title="Buyer keys" apiPath={API_PATH} initialKeys={initialKeys} />,
-  )
+function makeMcpKey(overrides: Partial<McpMachineKey> = {}): McpMachineKey {
+  return {
+    id: 'mk-1',
+    label: 'research',
+    key: 'mcptst_abc',
+    scopes: ['mcp:search'],
+    created_at: '2026-03-01T12:00:00Z',
+    last_used_at: null,
+    ...overrides,
+  }
+}
+
+function renderManager(initialKeys: BuyerMachineKey[] = []) {
+  return render(<MachineKeyManager kind="buyer" apiPath={API_PATH} initialKeys={initialKeys} />)
+}
+
+function renderMcpManager(initialKeys: McpMachineKey[] = []) {
+  return render(<MachineKeyManager kind="mcp" apiPath={MCP_API_PATH} initialKeys={initialKeys} />)
 }
 
 function mockFetch(status: number, body: object) {
@@ -131,5 +146,93 @@ describe('MachineKeyManager', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Revoke production' }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Key not found'))
     expect(screen.getByText('production')).toBeInTheDocument()
+  })
+})
+
+describe('MachineKeyManager for MCP keys', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('lists each key with its label, scopes, created date and last-used date', () => {
+    renderMcpManager([
+      makeMcpKey(),
+      makeMcpKey({
+        id: 'mk-2',
+        label: 'shopper',
+        scopes: ['mcp:search', 'mcp:purchase'],
+        last_used_at: '2026-04-02T12:00:00Z',
+      }),
+    ])
+    const table = screen.getByRole('table', { name: 'MCP keys' })
+    const [header, research, shopper] = within(table).getAllByRole('row')
+    expect(within(header).getByText('Scopes')).toBeInTheDocument()
+    expect(within(research).getByText('research')).toBeInTheDocument()
+    expect(within(research).getByText('mcp:search')).toBeInTheDocument()
+    expect(
+      within(research).getByText(new Date('2026-03-01T12:00:00Z').toLocaleDateString()),
+    ).toBeInTheDocument()
+    expect(within(research).getByText('Never')).toBeInTheDocument()
+    expect(within(shopper).getByText('mcp:search, mcp:purchase')).toBeInTheDocument()
+    expect(
+      within(shopper).getByText(new Date('2026-04-02T12:00:00Z').toLocaleDateString()),
+    ).toBeInTheDocument()
+  })
+
+  it('will not issue a key with no scope selected', async () => {
+    const fetchMock = mockFetch(201, {})
+    renderMcpManager()
+    await userEvent.click(screen.getByRole('button', { name: 'Issue key' }))
+    await userEvent.type(screen.getByLabelText('Label'), 'research')
+    const scopes = screen.getByRole('group', { name: 'Scopes' })
+    for (const box of within(scopes).getAllByRole('checkbox')) {
+      expect(box).not.toBeChecked()
+    }
+    expect(screen.getByRole('button', { name: 'Issue' })).toBeDisabled()
+    await userEvent.type(screen.getByLabelText('Label'), '{enter}')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('issues a key with a label and scopes, shows its secret once, then lists it', async () => {
+    const fetchMock = mockFetch(201, {
+      ...makeMcpKey({ id: 'mk-9', label: 'shopper', key: 'mcptst_new' }),
+      scopes: ['mcp:search', 'mcp:purchase'],
+      secret: 'f00dcafe',
+    })
+    renderMcpManager()
+    await userEvent.click(screen.getByRole('button', { name: 'Issue key' }))
+    await userEvent.type(screen.getByLabelText('Label'), 'shopper')
+    await userEvent.click(screen.getByRole('checkbox', { name: 'mcp:search' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'mcp:purchase' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Issue' }))
+
+    expect(fetchMock).toHaveBeenCalledWith(MCP_API_PATH, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'shopper', scopes: ['mcp:search', 'mcp:purchase'] }),
+    })
+    const panel = await screen.findByRole('region', { name: 'New key secret' })
+    expect(within(panel).getByText('f00dcafe')).toBeInTheDocument()
+    expect(within(panel).getByText('mcptst_new')).toBeInTheDocument()
+
+    await userEvent.click(within(panel).getByRole('button', { name: "I've saved the secret" }))
+    expect(screen.queryByText('f00dcafe')).not.toBeInTheDocument()
+    const table = screen.getByRole('table', { name: 'MCP keys' })
+    const [, shopper] = within(table).getAllByRole('row')
+    expect(within(shopper).getByText('shopper')).toBeInTheDocument()
+    expect(within(shopper).getByText('mcp:search, mcp:purchase')).toBeInTheDocument()
+  })
+
+  it('revokes a key by its label after confirmation and removes it from the list', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const fetchMock = mockFetch(200, { ok: true })
+    renderMcpManager([makeMcpKey(), makeMcpKey({ id: 'mk-2', label: 'shopper' })])
+
+    await userEvent.click(screen.getByRole('button', { name: 'Revoke shopper' }))
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('shopper'))
+    expect(fetchMock).toHaveBeenCalledWith(`${MCP_API_PATH}/mk-2`, { method: 'DELETE' })
+    await waitFor(() => expect(screen.queryByText('shopper')).not.toBeInTheDocument())
+    expect(screen.getByText('research')).toBeInTheDocument()
   })
 })

@@ -104,6 +104,20 @@ describe('MemberDetailPage', () => {
         },
       ],
     } as never)
+    mockCompany.machineUsers.mcpKeys.list.mockResolvedValue({
+      data: [
+        {
+          id: 'mk-1',
+          label: 'research',
+          key: 'mcptst_abc',
+          scopes: ['mcp:search', 'mcp:purchase'],
+          created_by_user_id: 'user-1',
+          expires_at: null,
+          created_at: '2026-03-01T12:00:00Z',
+          last_used_at: '2026-04-02T12:00:00Z',
+        },
+      ],
+    } as never)
   })
 
   it('points a buyer in no Company to joining one', async () => {
@@ -235,22 +249,38 @@ describe('MemberDetailPage', () => {
     expect(within(table).getByText('Never')).toBeInTheDocument()
   })
 
-  it('shows no Buyer key section for a human member', async () => {
+  it("shows a machine member's MCP keys, read by its Machine user id", async () => {
+    await renderPage()
+    expect(mockCompany.machineUsers.mcpKeys.list).toHaveBeenCalledWith('mu-2')
+    expect(screen.getByRole('heading', { name: 'MCP keys' })).toBeInTheDocument()
+    const table = screen.getByRole('table', { name: 'MCP keys' })
+    expect(within(table).getByText('research')).toBeInTheDocument()
+    expect(within(table).getByText('mcp:search, mcp:purchase')).toBeInTheDocument()
+    expect(
+      within(table).getByText(new Date('2026-04-02T12:00:00Z').toLocaleDateString()),
+    ).toBeInTheDocument()
+  })
+
+  it('shows no key sections for a human member', async () => {
     mockCompany.members.list.mockResolvedValue({
       data: [{ ...agent, kind: 'human', name: 'Ada', email: 'ada@example.com' }],
     } as never)
     await renderPage()
     expect(screen.getByRole('heading', { name: 'Ada' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Buyer keys' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'MCP keys' })).not.toBeInTheDocument()
     expect(mockCompany.machineUsers.list).not.toHaveBeenCalled()
     expect(mockCompany.machineUsers.buyerKeys.list).not.toHaveBeenCalled()
+    expect(mockCompany.machineUsers.mcpKeys.list).not.toHaveBeenCalled()
   })
 
-  it('shows no Buyer key section when no Machine user matches the member', async () => {
+  it('shows no key sections when no Machine user matches the member', async () => {
     mockCompany.machineUsers.list.mockResolvedValue({ data: [] } as never)
     await renderPage()
     expect(screen.getByRole('heading', { name: 'research-agent' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Buyer keys' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'MCP keys' })).not.toBeInTheDocument()
     expect(mockCompany.machineUsers.buyerKeys.list).not.toHaveBeenCalled()
+    expect(mockCompany.machineUsers.mcpKeys.list).not.toHaveBeenCalled()
   })
 })

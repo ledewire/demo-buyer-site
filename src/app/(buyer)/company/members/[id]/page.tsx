@@ -19,17 +19,20 @@ const PER_PAGE = 25
 type BuyerClient = Awaited<ReturnType<typeof createBuyerClient>>
 
 /**
- * A machine member's Buyer keys, with the Machine user id their routes take, or null for a
- * human member or one no Machine user matches. The membership names the Machine user's
+ * A machine member's Buyer and MCP keys, with the Machine user id their routes take, or null
+ * for a human member or one no Machine user matches. The membership names the Machine user's
  * Buyer by `user_id`.
  */
-async function findMachineBuyerKeys(client: BuyerClient, member: CompanyMember) {
+async function findMachineKeys(client: BuyerClient, member: CompanyMember) {
   if (member.kind !== 'machine') return null
   const machineUsers = await client.company.machineUsers.list()
   const machineUser = machineUsers.data.find((m) => m.user_id === member.user_id)
   if (!machineUser) return null
-  const keys = await client.company.machineUsers.buyerKeys.list(machineUser.id)
-  return { machineUserId: machineUser.id, keys: keys.data }
+  const [buyerKeys, mcpKeys] = await Promise.all([
+    client.company.machineUsers.buyerKeys.list(machineUser.id),
+    client.company.machineUsers.mcpKeys.list(machineUser.id),
+  ])
+  return { machineUserId: machineUser.id, buyerKeys: buyerKeys.data, mcpKeys: mcpKeys.data }
 }
 
 function SpendTile({ label, cents }: { label: string; cents: number }) {
@@ -79,11 +82,13 @@ export default async function MemberDetailPage({
       )
     }
 
-    const [activity, purchases, buyerKeys] = await Promise.all([
+    const [activity, purchases, machineKeys] = await Promise.all([
       getMemberSpend(member.id),
       client.company.purchases.list({ member: member.id, page, per_page: PER_PAGE }),
-      findMachineBuyerKeys(client, member),
+      findMachineKeys(client, member),
     ])
+    const machineUserPath =
+      machineKeys && `/api/company/machine-users/${encodeURIComponent(machineKeys.machineUserId)}`
     const pastLastPage = purchases.data.length === 0 && purchases.pagination.total > 0
 
     return (
@@ -126,12 +131,19 @@ export default async function MemberDetailPage({
           </p>
         </div>
 
-        {buyerKeys && (
-          <MachineKeyManager
-            title="Buyer keys"
-            apiPath={`/api/company/machine-users/${encodeURIComponent(buyerKeys.machineUserId)}/buyer-keys`}
-            initialKeys={buyerKeys.keys}
-          />
+        {machineKeys && (
+          <>
+            <MachineKeyManager
+              kind="buyer"
+              apiPath={`${machineUserPath}/buyer-keys`}
+              initialKeys={machineKeys.buyerKeys}
+            />
+            <MachineKeyManager
+              kind="mcp"
+              apiPath={`${machineUserPath}/mcp-keys`}
+              initialKeys={machineKeys.mcpKeys}
+            />
+          </>
         )}
 
         <div className="space-y-3">
