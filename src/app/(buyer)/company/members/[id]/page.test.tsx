@@ -301,4 +301,13 @@ describe('MemberDetailPage', () => {
     await renderPage()
     expect(screen.queryByRole('navigation', { name: 'Company' })).not.toBeInTheDocument()
   })
+
+  it('shows an admin the Company tabs on a member that is not found', async () => {
+    await renderPage('mem-gone')
+    const tabs = screen.getByRole('navigation', { name: 'Company' })
+    expect(within(tabs).getByRole('link', { name: 'People' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+  })
 })

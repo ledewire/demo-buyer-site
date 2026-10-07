@@ -74,12 +74,15 @@ export default async function MemberDetailPage({
     const member = members.data.find((m) => m.id === id)
     if (!member) {
       return (
-        <p className="text-sm text-gray-500">
-          No open membership matches this member.{' '}
-          <Link href="/company/members" className="text-indigo-600 hover:text-indigo-800">
-            Back to Members
-          </Link>
-        </p>
+        <div className="space-y-8">
+          <CompanyTabs current="people" />
+          <p className="text-sm text-gray-500">
+            No open membership matches this member.{' '}
+            <Link href="/company/members" className="text-indigo-600 hover:text-indigo-800">
+              Back to Members
+            </Link>
+          </p>
+        </div>
       )
     }
 

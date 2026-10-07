@@ -11,7 +11,9 @@ vi.mock('@/lib/company', () => ({ getCompanyMembership: vi.fn() }))
 vi.mock('@/lib/ledewire', () => import('@/__mocks__/ledewire-client'))
 
 import CompanyPurchasesPage from './page'
+import { AuthError, LedewireError } from '@ledewire/node'
 import type { CompanyMembership } from '@ledewire/node'
+import { redirect } from 'next/navigation'
 import { getCompanyMembership } from '@/lib/company'
 import { mockCompany } from '@/__mocks__/ledewire-client'
 
@@ -70,5 +72,19 @@ describe('CompanyPurchasesPage', () => {
     await renderPage()
     expect(screen.getByRole('link', { name: 'Join a Company' })).toHaveAttribute('href', '/join')
     expect(screen.queryByRole('navigation', { name: 'Company' })).not.toBeInTheDocument()
+  })
+
+  it('redirects to login when the session has expired', async () => {
+    vi.mocked(getCompanyMembership).mockRejectedValue(new AuthError('expired'))
+    await expect(CompanyPurchasesPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(
+      'NEXT_REDIRECT',
+    )
+    expect(redirect).toHaveBeenCalledWith('/login')
+  })
+
+  it('shows the API error inline', async () => {
+    mockCompany.purchases.list.mockRejectedValue(new LedewireError('service unavailable', 503))
+    await renderPage()
+    expect(screen.getByText('API error: service unavailable')).toBeInTheDocument()
   })
 })
