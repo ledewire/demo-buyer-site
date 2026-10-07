@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import MembersManager from './MembersManager'
+import PeopleManager from './PeopleManager'
 import type { CompanyInvitation, CompanyMember } from '@ledewire/node'
 import type { MemberActivity } from '@/lib/company-activity'
 
@@ -50,8 +50,8 @@ function renderManager(
   activity: Record<string, MemberActivity> = {},
 ) {
   return render(
-    <MembersManager
-      initialMembers={members}
+    <PeopleManager
+      initialPeople={members}
       initialInvitations={invitations}
       currentMembershipId="mem-1"
       activity={activity}
@@ -63,7 +63,7 @@ function rowFor(name: string) {
   return screen.getByText(name).closest('tr')!
 }
 
-describe('MembersManager', () => {
+describe('PeopleManager', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     mockRefresh.mockReset()
@@ -77,72 +77,28 @@ describe('MembersManager', () => {
     expect(screen.getAllByText('$10.00')).toHaveLength(2)
   })
 
-  it('renders people and machines in separate sections', () => {
-    const agent = makeMember({
-      id: 'mem-3',
-      user_id: 'user-3',
-      kind: 'machine',
-      email: null,
-      name: 'research-agent',
-      role: 'member',
-    })
-    renderManager([makeMember(), agent, bob])
-    const people = screen.getByRole('region', { name: 'People' })
-    const machines = screen.getByRole('region', { name: 'Machines' })
-    expect(within(people).getByText('Ada Admin')).toBeInTheDocument()
-    expect(within(people).getByText('Bob')).toBeInTheDocument()
-    expect(within(people).queryByText('research-agent')).not.toBeInTheDocument()
-    expect(within(machines).getByText('research-agent')).toBeInTheDocument()
-    expect(within(machines).queryByText('Ada Admin')).not.toBeInTheDocument()
-    expect(within(machines).queryByText('Bob')).not.toBeInTheDocument()
-  })
-
-  it('offers a role control for people but not machines', () => {
-    renderManager([
-      bob,
-      makeMember({ id: 'mem-3', kind: 'machine', email: null, name: 'research-agent' }),
-    ])
-    expect(screen.getByLabelText('Role for Bob')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Role for research-agent')).not.toBeInTheDocument()
-  })
-
-  it('shows an empty state for a section with no members', () => {
+  it('offers a role control for each person', () => {
     renderManager()
-    const machines = screen.getByRole('region', { name: 'Machines' })
-    expect(within(machines).getByText('No machine users yet.')).toBeInTheDocument()
-    expect(within(machines).queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Role for Ada Admin')).toHaveValue('admin')
+    expect(screen.getByLabelText('Role for Bob')).toHaveValue('member')
   })
 
-  it('shows an empty People section when every member is a machine', () => {
-    renderManager([makeMember({ kind: 'machine', email: null, name: 'research-agent' })])
-    const people = screen.getByRole('region', { name: 'People' })
-    expect(within(people).getByText('No people yet.')).toBeInTheDocument()
-    expect(within(people).queryByRole('table')).not.toBeInTheDocument()
+  it('shows an empty state when there are no people', () => {
+    renderManager([])
+    expect(screen.getByText('No people yet.')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
-  it("links each person's and machine's name to their detail page by membership id", () => {
-    const agent = makeMember({
-      id: 'mem/3',
-      user_id: 'user-3',
-      kind: 'machine',
-      email: null,
-      name: 'research-agent',
-      role: 'member',
-    })
-    renderManager([makeMember(), agent])
+  it("links each person's name to their detail page by membership id", () => {
+    renderManager([makeMember(), makeMember({ id: 'mem/3', name: 'Carol' })])
     expect(screen.getByRole('link', { name: 'Ada Admin' })).toHaveAttribute(
       'href',
       '/company/members/mem-1',
     )
-    expect(screen.getByRole('link', { name: 'research-agent' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Carol' })).toHaveAttribute(
       'href',
       '/company/members/mem%2F3',
     )
-  })
-
-  it('labels machine users', () => {
-    renderManager([makeMember({ kind: 'machine', email: null, name: 'research-agent' })])
-    expect(screen.getByText('Machine user')).toBeInTheDocument()
   })
 
   it("shows each member's spend today against their cap, and over 30 days", () => {
@@ -262,21 +218,6 @@ describe('MembersManager', () => {
     expect(confirm).toHaveBeenCalledWith('Remove Bob from the Company?')
   })
 
-  it('warns that removing a machine is permanent and revokes its keys', async () => {
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    mockFetch(200, { ok: true })
-    renderManager([
-      makeMember(),
-      makeMember({ id: 'mem-3', kind: 'machine', email: null, name: 'research-agent' }),
-    ])
-    const row = screen.getByText('research-agent').closest('tr')!
-    await userEvent.click(within(row).getByRole('button', { name: 'Remove' }))
-    expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/permanent/i))
-    expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/revokes all of its keys/i))
-    await waitFor(() => expect(screen.queryByText('research-agent')).not.toBeInTheDocument())
-    expect(global.fetch).toHaveBeenCalledWith('/api/company/members/mem-3', { method: 'DELETE' })
-  })
-
   it('does not remove when confirmation is declined', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false)
     global.fetch = vi.fn()
@@ -324,105 +265,6 @@ describe('MembersManager', () => {
     await userEvent.type(screen.getByLabelText('Email'), 'bob@example.com')
     await userEvent.click(screen.getByRole('button', { name: 'Send invitation' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('already a member')
-  })
-
-  describe('adding a machine user', () => {
-    function machineForm() {
-      const machines = screen.getByRole('region', { name: 'Machines' })
-      return {
-        name: within(machines).getByLabelText('Name'),
-        description: within(machines).getByLabelText('Description (optional)'),
-        submit: within(machines).getByRole('button', { name: 'Add machine' }),
-      }
-    }
-
-    it('posts the name and description, clears the form and refreshes the page data', async () => {
-      mockFetch(201, { id: 'mu-1', name: 'research-agent' })
-      renderManager()
-      const form = machineForm()
-      await userEvent.type(form.name, 'research-agent')
-      await userEvent.type(form.description, 'Nightly crawler')
-      await userEvent.click(form.submit)
-      await waitFor(() => expect(mockRefresh).toHaveBeenCalledTimes(1))
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/company/machine-users',
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ name: 'research-agent', description: 'Nightly crawler' }),
-        }),
-      )
-      expect(form.name).toHaveValue('')
-      expect(form.description).toHaveValue('')
-      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    })
-
-    it('leaves the description out when it is blank', async () => {
-      mockFetch(201, { id: 'mu-1', name: 'bot' })
-      renderManager()
-      const form = machineForm()
-      await userEvent.type(form.name, 'bot')
-      await userEvent.click(form.submit)
-      await waitFor(() => expect(mockRefresh).toHaveBeenCalled())
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/company/machine-users',
-        expect.objectContaining({ body: JSON.stringify({ name: 'bot' }) }),
-      )
-    })
-
-    it('limits the name to 100 characters and requires it', () => {
-      renderManager()
-      const { name } = machineForm()
-      expect(name).toBeRequired()
-      expect(name).toHaveAttribute('maxLength', '100')
-    })
-
-    it("shows the route's error and keeps the form when adding fails", async () => {
-      mockFetch(409, { error: 'A machine user named bot already exists' })
-      renderManager()
-      const form = machineForm()
-      await userEvent.type(form.name, 'bot')
-      await userEvent.click(form.submit)
-      expect(await screen.findByRole('alert')).toHaveTextContent(
-        'A machine user named bot already exists',
-      )
-      expect(form.name).toHaveValue('bot')
-      expect(mockRefresh).not.toHaveBeenCalled()
-    })
-
-    it('disables the button while the request is in flight', async () => {
-      let resolve!: (res: Response) => void
-      global.fetch = vi.fn().mockReturnValueOnce(new Promise<Response>((r) => (resolve = r)))
-      renderManager()
-      const form = machineForm()
-      await userEvent.type(form.name, 'bot')
-      await userEvent.click(form.submit)
-      expect(form.submit).toBeDisabled()
-      resolve({ ok: true, json: async () => ({ id: 'mu-1' }) } as Response)
-      await waitFor(() => expect(form.submit).toBeEnabled())
-    })
-
-    it('shows the new machine when the refreshed page data arrives', () => {
-      const { rerender } = renderManager()
-      const machine = makeMember({
-        id: 'mem-9',
-        user_id: 'user-9',
-        kind: 'machine',
-        email: null,
-        name: 'research-agent',
-        role: 'member',
-      })
-      rerender(
-        <MembersManager
-          initialMembers={[makeMember(), bob, machine]}
-          initialInvitations={[]}
-          currentMembershipId="mem-1"
-          activity={{}}
-        />,
-      )
-      const machines = screen.getByRole('region', { name: 'Machines' })
-      const row = within(machines).getByText('research-agent').closest('tr')!
-      expect(within(row).getByText('$10.00')).toBeInTheDocument()
-    })
   })
 
   it('shows a network error', async () => {
