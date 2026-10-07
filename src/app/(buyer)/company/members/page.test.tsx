@@ -142,11 +142,14 @@ describe('CompanyMembersPage', () => {
 
   it("shows an admin the Company's activity snapshot", async () => {
     await renderPage()
-    const today = screen.getByRole('group', { name: 'Today' })
-    expect(within(today).getByText('$3.20')).toBeInTheDocument()
-    expect(within(today).getByText('7 purchases')).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Last 7 days' })).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Last 30 days' })).toBeInTheDocument()
+    for (const name of ['Today', 'Last 7 days', 'Last 30 days']) {
+      const window = screen.getByRole('group', { name })
+      expect(within(window).getByText('$3.20')).toBeInTheDocument()
+      expect(within(window).getByText('7 purchases')).toBeInTheDocument()
+    }
+    expect(
+      screen.getByText('Spend counts captured amounts only, not live bulk holds.'),
+    ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'View Company purchases' })).toHaveAttribute(
       'href',
       '/company/purchases',
