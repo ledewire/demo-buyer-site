@@ -6,6 +6,7 @@ import type { CompanyInvitation, CompanyMember } from '@ledewire/node'
 import type { MemberActivity } from '@/lib/company-activity'
 import { formatDate } from '@/lib/format'
 import { MAX_MACHINE_NAME_LENGTH } from '@/lib/machine-users'
+import { INVALID_CAP_MESSAGE, parseCapCents } from '@/lib/spend-cap'
 import MemberRow, { type Role } from './MemberRow'
 
 interface Props {
@@ -71,15 +72,12 @@ export default function MembersManager({
   }
 
   async function handleSaveCap(member: CompanyMember) {
-    const draft = capDrafts[member.id]
-    const dollars = Number(draft)
-    if (draft === undefined || draft.trim() === '' || !Number.isFinite(dollars) || dollars < 0) {
-      setError('Enter a daily spend cap of $0 or more')
+    const cents = parseCapCents(capDrafts[member.id])
+    if (cents === null) {
+      setError(INVALID_CAP_MESSAGE)
       return
     }
-    const saved = await updateMember(member.id, {
-      daily_spend_limit_cents: Math.round(dollars * 100),
-    })
+    const saved = await updateMember(member.id, { daily_spend_limit_cents: cents })
     if (saved) {
       setCapDrafts(({ [member.id]: _, ...rest }) => rest)
     }
