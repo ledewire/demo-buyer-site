@@ -77,6 +77,17 @@ describe('CompanyMembersPage', () => {
         },
       ],
     } as never)
+    mockCompany.purchases.list.mockResolvedValue({
+      data: [],
+      pagination: {
+        current_page: 1,
+        per_page: 1,
+        total: 7,
+        total_pages: 7,
+        next_page: 2,
+        prev_page: null,
+      },
+    } as never)
   })
 
   it('points a buyer in no Company to joining one', async () => {
@@ -127,5 +138,25 @@ describe('CompanyMembersPage', () => {
     vi.mocked(getCompanyMembership).mockResolvedValue({ ...adminMembership, role: 'member' })
     await renderPage()
     expect(mockCompany.spend.list).not.toHaveBeenCalled()
+  })
+
+  it("shows an admin the Company's activity snapshot", async () => {
+    await renderPage()
+    const today = screen.getByRole('group', { name: 'Today' })
+    expect(within(today).getByText('$3.20')).toBeInTheDocument()
+    expect(within(today).getByText('7 purchases')).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Last 7 days' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Last 30 days' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View Company purchases' })).toHaveAttribute(
+      'href',
+      '/company/purchases',
+    )
+  })
+
+  it('does not show a non-admin the activity snapshot', async () => {
+    vi.mocked(getCompanyMembership).mockResolvedValue({ ...adminMembership, role: 'member' })
+    await renderPage()
+    expect(screen.queryByRole('group', { name: 'Today' })).not.toBeInTheDocument()
+    expect(mockCompany.purchases.list).not.toHaveBeenCalled()
   })
 })

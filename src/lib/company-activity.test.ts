@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/ledewire', () => import('@/__mocks__/ledewire-client'))
 
-import { activityWindows, getMemberActivity } from './company-activity'
+import { activityWindows, getCompanyActivity } from './company-activity'
 import { mockCompany, mockUserSpendCap } from '@/__mocks__/ledewire-client'
 
 // 02:00 UTC on 10 March is still 9 March (22:00 EDT) in New York.
@@ -18,6 +18,20 @@ function spendRow(membershipId: string, spendCents: number) {
       left_at: null,
     },
     spend_cents: spendCents,
+  }
+}
+
+function purchasePage(total: number) {
+  return {
+    data: [],
+    pagination: {
+      current_page: 1,
+      per_page: 1,
+      total,
+      total_pages: total,
+      next_page: null,
+      prev_page: null,
+    },
   }
 }
 
@@ -39,15 +53,16 @@ describe('activityWindows', () => {
   })
 })
 
-describe('getMemberActivity', () => {
+describe('getCompanyActivity', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockUserSpendCap.get.mockResolvedValue({ spend_window_timezone: 'America/New_York' } as never)
     mockCompany.spend.list.mockResolvedValue({ data: [] } as never)
+    mockCompany.purchases.list.mockResolvedValue(purchasePage(0) as never)
   })
 
   it("reads today and the last 30 days in the Company's timezone, not UTC", async () => {
-    await getMemberActivity(['mem-1'], NOW)
+    await getCompanyActivity(['mem-1'], NOW)
     expect(mockCompany.spend.list).toHaveBeenCalledWith({ from: '2026-03-09', to: '2026-03-09' })
     expect(mockCompany.spend.list).toHaveBeenCalledWith({ from: '2026-02-08', to: '2026-03-09' })
   })
@@ -59,27 +74,63 @@ describe('getMemberActivity', () => {
           ? [spendRow('mem-1', 320)]
           : [spendRow('mem-1', 4500), spendRow('mem-2', 1200)],
     })) as never)
-    expect(await getMemberActivity(['mem-1', 'mem-2'], NOW)).toEqual({
+    expect((await getCompanyActivity(['mem-1', 'mem-2'], NOW)).members).toEqual({
       'mem-1': { todayCents: 320, last30Cents: 4500 },
       'mem-2': { todayCents: 0, last30Cents: 1200 },
     })
   })
 
-  it('makes the same number of spend calls for 1 member as for 50', async () => {
-    await getMemberActivity(['mem-1'], NOW)
-    const forOne = mockCompany.spend.list.mock.calls.length
-    mockCompany.spend.list.mockClear()
-    await getMemberActivity(
-      Array.from({ length: 50 }, (_, i) => `mem-${i}`),
-      NOW,
-    )
-    expect(mockCompany.spend.list).toHaveBeenCalledTimes(forOne)
-    expect(forOne).toBe(2)
+  it('makes the same number of SDK calls for 1 member as for 50', async () => {
+    async function sdkCallsFor(memberCount: number) {
+      vi.clearAllMocks()
+      const ids = Array.from({ length: memberCount }, (_, i) => `mem-${i}`)
+      mockCompany.spend.list.mockResolvedValue({
+        data: ids.map((id) => spendRow(id, 100)),
+      } as never)
+      await getCompanyActivity(ids, NOW)
+      return (
+        mockUserSpendCap.get.mock.calls.length +
+        mockCompany.spend.list.mock.calls.length +
+        mockCompany.purchases.list.mock.calls.length
+      )
+    }
+    const forOne = await sdkCallsFor(1)
+    expect(await sdkCallsFor(50)).toBe(forOne)
+    expect(forOne).toBe(7)
   })
 
   it('reads a member with no spend row as $0 today and $0 over 30 days', async () => {
     mockCompany.spend.list.mockResolvedValue({ data: [spendRow('mem-1', 500)] } as never)
-    const activity = await getMemberActivity(['mem-1', 'mem-new'], NOW)
-    expect(activity['mem-new']).toEqual({ todayCents: 0, last30Cents: 0 })
+    const { members } = await getCompanyActivity(['mem-1', 'mem-new'], NOW)
+    expect(members['mem-new']).toEqual({ todayCents: 0, last30Cents: 0 })
+  })
+
+  it("sums the Company's spend and reads its purchase count from pagination.total per window", async () => {
+    const spend: Record<string, number[]> = {
+      '2026-03-09': [320],
+      '2026-03-03': [320, 1000, 80],
+      '2026-02-08': [4500, 1200, 300],
+    }
+    const purchases: Record<string, number> = {
+      '2026-03-09': 2,
+      '2026-03-03': 9,
+      '2026-02-08': 41,
+    }
+    mockCompany.spend.list.mockImplementation((async ({ from }: { from: string }) => ({
+      data: spend[from].map((cents, i) => spendRow(`mem-${i}`, cents)),
+    })) as never)
+    mockCompany.purchases.list.mockImplementation((async ({ from }: { from: string }) =>
+      purchasePage(purchases[from])) as never)
+
+    expect((await getCompanyActivity(['mem-0'], NOW)).totals).toEqual({
+      today: { spendCents: 320, purchaseCount: 2 },
+      last7: { spendCents: 1400, purchaseCount: 9 },
+      last30: { spendCents: 6000, purchaseCount: 41 },
+    })
+    expect(mockCompany.purchases.list).toHaveBeenCalledWith({
+      from: '2026-03-03',
+      to: '2026-03-09',
+      per_page: 1,
+    })
   })
 })
