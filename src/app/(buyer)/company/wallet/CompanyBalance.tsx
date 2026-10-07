@@ -7,10 +7,7 @@ interface Props {
 
 export default function CompanyBalance({ wallet }: Props) {
   return (
-    <section
-      aria-label="Company balance"
-      className="bg-white rounded-lg border border-gray-200 p-6"
-    >
+    <section aria-label="Company balance">
       <p className="text-sm text-gray-500">Available</p>
       <p className="text-3xl font-bold text-gray-900">{formatCents(wallet.balance_cents)}</p>
       {wallet.held_cents > 0 && (

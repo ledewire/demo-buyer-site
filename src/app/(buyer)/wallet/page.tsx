@@ -62,9 +62,9 @@ async function renderPersonalWallet() {
 
 /**
  * A Company member spends only from the Company wallet, so they see that
- * wallet alone — never a personal balance. The API exposes no Company balance,
- * so the page shows the viewer's cap headroom. Admins fund the wallet and track
- * top-ups on the Company Wallet page (/company/wallet).
+ * wallet alone — never a personal balance. Members never see the Company
+ * balance, so the page shows the viewer's cap headroom. Admins see the balance,
+ * fund the wallet and track top-ups on the Company Wallet page (/company/wallet).
  */
 async function renderCompanyWallet(membership: CompanyMembership) {
   const client = await createBuyerClient()

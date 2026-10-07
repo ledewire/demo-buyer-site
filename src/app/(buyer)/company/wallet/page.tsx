@@ -29,27 +29,27 @@ export default async function CompanyWalletPage() {
 
     const client = await createBuyerClient()
     const [wallet, topUps] = await Promise.all([
-      client.company.wallet.get().catch(balanceUnavailable),
+      client.company.wallet.get().catch(nullOnApiError),
       client.company.wallet.listPendingTopUps(),
     ])
 
     return (
       <div className="space-y-8">
         <CompanyTabs current="wallet" />
-        <div className="flex flex-wrap gap-4 items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Company Wallet</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Every member&apos;s purchases are paid from the {membership.company_name} wallet.
-            </p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Company Wallet</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Every member&apos;s purchases are paid from the {membership.company_name} wallet.
+          </p>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-6 flex flex-wrap gap-4 items-center justify-between">
+          {wallet ? (
+            <CompanyBalance wallet={wallet} />
+          ) : (
+            <p className="text-sm text-gray-500">Balance unavailable</p>
+          )}
           <WalletFund target="company" />
         </div>
-        {wallet ? (
-          <CompanyBalance wallet={wallet} />
-        ) : (
-          <p className="text-sm text-gray-500">Balance unavailable</p>
-        )}
         <div>
           <h2 className="text-lg font-semibold text-gray-800">Pending top-ups</h2>
           <p className="mt-1 mb-4 text-sm text-gray-500">
@@ -73,7 +73,8 @@ export default async function CompanyWalletPage() {
  * The balance is a read-only extra: when it fails, the admin can still add
  * funds and follow top-ups. An expired session still sends them to login.
  */
-function balanceUnavailable(err: unknown): null {
-  if (err instanceof LedewireError && !(err instanceof AuthError)) return null
-  throw err
+function nullOnApiError(err: unknown): null {
+  if (err instanceof AuthError || !(err instanceof LedewireError)) throw err
+  console.error('[company/wallet] Company wallet read failed', err)
+  return null
 }

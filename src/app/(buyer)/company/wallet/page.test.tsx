@@ -129,6 +129,13 @@ describe('CompanyWalletPage', () => {
     expect(within(card).getByText('$1234.56')).toBeInTheDocument()
   })
 
+  it('shows the balance next to Add funds', async () => {
+    await renderPage()
+    const row = screen.getByRole('region', { name: 'Company balance' }).parentElement!
+    expect(within(row).getByRole('button', { name: 'Add funds' })).toBeInTheDocument()
+    expect(within(row).queryByRole('heading')).not.toBeInTheDocument()
+  })
+
   it('shows money held for bulk exports when some is held', async () => {
     mockCompany.wallet.get.mockResolvedValue({ ...companyWallet, held_cents: 2500 })
     await renderPage()
@@ -158,6 +165,7 @@ describe('CompanyWalletPage', () => {
   })
 
   it('keeps Add funds and Pending top-ups when the balance cannot be read', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
     mockCompany.wallet.get.mockRejectedValue(new LedewireError('service unavailable', 503))
     await renderPage()
     expect(screen.getByText('Balance unavailable')).toBeInTheDocument()
