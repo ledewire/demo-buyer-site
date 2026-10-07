@@ -94,13 +94,17 @@ export default async function MemberDetailPage({
     const machineUserPath =
       machineKeys && `/api/company/machine-users/${encodeURIComponent(machineKeys.machineUserId)}`
     const pastLastPage = purchases.data.length === 0 && purchases.pagination.total > 0
+    const isMachine = member.kind === 'machine'
 
     return (
       <div className="space-y-8">
-        <CompanyTabs current="people" />
+        <CompanyTabs current={isMachine ? 'machines' : 'people'} />
         <div>
-          <Link href="/company/members" className="text-sm text-indigo-600 hover:text-indigo-800">
-            ← Members
+          <Link
+            href={isMachine ? '/company/machines' : '/company/members'}
+            className="text-sm text-indigo-600 hover:text-indigo-800"
+          >
+            {isMachine ? '← Machines' : '← Members'}
           </Link>
           <h1 className="mt-2 text-2xl font-bold text-gray-900">{member.name}</h1>
           <dl aria-label="Member details" className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">

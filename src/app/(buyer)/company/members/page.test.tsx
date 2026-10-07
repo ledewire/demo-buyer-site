@@ -10,12 +10,18 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/auth', () => ({ requireAuth: vi.fn() }))
 vi.mock('@/lib/company', () => ({ getCompanyMembership: vi.fn() }))
 vi.mock('@/lib/ledewire', () => import('@/__mocks__/ledewire-client'))
+// The real module, wrapped so a test can see which members the page asks about.
+vi.mock('@/lib/company-activity', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/company-activity')>()
+  return { ...actual, getCompanyActivity: vi.fn(actual.getCompanyActivity) }
+})
 
 import CompanyMembersPage from './page'
 import { AuthError, LedewireError } from '@ledewire/node'
 import type { CompanyMember, CompanyMembership } from '@ledewire/node'
 import { redirect } from 'next/navigation'
 import { getCompanyMembership } from '@/lib/company'
+import { getCompanyActivity } from '@/lib/company-activity'
 import { mockCompany, mockUserSpendCap } from '@/__mocks__/ledewire-client'
 
 const adminMembership: CompanyMembership = {
@@ -127,22 +133,26 @@ describe('CompanyMembersPage', () => {
     expect(screen.getByText('API error: service unavailable')).toBeInTheDocument()
   })
 
-  it('shows an admin the People and Machines sections', async () => {
+  it('lists only the people of a mixed Company', async () => {
     await renderPage()
     expect(screen.getByRole('heading', { name: 'Members' })).toBeInTheDocument()
-    const people = screen.getByRole('region', { name: 'People' })
-    const machines = screen.getByRole('region', { name: 'Machines' })
-    expect(within(people).getByText('Ada Admin')).toBeInTheDocument()
-    expect(within(machines).getByText('research-agent')).toBeInTheDocument()
+    expect(screen.getByText('Ada Admin')).toBeInTheDocument()
+    expect(screen.queryByText('research-agent')).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Machines' })).not.toBeInTheDocument()
   })
 
-  it("shows an admin each member's spend against their cap", async () => {
+  it('offers the invite form and pending invitations, not the Add machine form', async () => {
     await renderPage()
-    const people = screen.getByRole('region', { name: 'People' })
-    const machines = screen.getByRole('region', { name: 'Machines' })
-    expect(within(people).getByText('$3.20 of $10.00 today')).toBeInTheDocument()
-    expect(within(people).getByText('$3.20 last 30 days')).toBeInTheDocument()
-    expect(within(machines).getByText('$0.00 of $10.00 today')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send invitation' })).toBeInTheDocument()
+    expect(screen.getByText('No pending invitations.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add machine' })).not.toBeInTheDocument()
+  })
+
+  it("loads activity for the people only and shows each person's spend against their cap", async () => {
+    await renderPage()
+    expect(getCompanyActivity).toHaveBeenCalledWith(['mem-1'])
+    expect(screen.getByText('$3.20 of $10.00 today')).toBeInTheDocument()
+    expect(screen.getByText('$3.20 last 30 days')).toBeInTheDocument()
   })
 
   it("does not read the Company's spend for a non-admin", async () => {

@@ -6,10 +6,9 @@ import { getCompanyActivity } from '@/lib/company-activity'
 import { AuthError, LedewireError } from '@ledewire/node'
 import CompanyTabs from '../CompanyTabs'
 import NotInCompany from '../NotInCompany'
-import ActivitySnapshot from './ActivitySnapshot'
-import PeopleManager from './PeopleManager'
+import MachinesManager from './MachinesManager'
 
-export default async function CompanyMembersPage() {
+export default async function CompanyMachinesPage() {
   await requireAuth()
 
   try {
@@ -18,30 +17,25 @@ export default async function CompanyMembersPage() {
       return <NotInCompany />
     }
     if (membership.role !== 'admin') {
-      return <p className="text-sm text-gray-500">Only Company admins can manage members.</p>
+      return <p className="text-sm text-gray-500">Only Company admins can manage machines.</p>
     }
 
     const client = await createBuyerClient()
-    const [members, invitations] = await Promise.all([
-      client.company.members.list(),
-      client.company.invitations.list(),
-    ])
-    const people = members.data.filter((m) => m.kind === 'human')
-    const activity = await getCompanyActivity(people.map((m) => m.id))
+    const members = await client.company.members.list()
+    const machines = members.data.filter((m) => m.kind === 'machine')
+    const activity = await getCompanyActivity(machines.map((m) => m.id))
     return (
       <div className="space-y-6">
-        <CompanyTabs current="people" />
+        <CompanyTabs current="machines" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Members</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Machines</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Everyone in {membership.company_name} spends from the Company wallet, up to their own
-            daily spend cap.
+            Machine users let software, such as an AI agent, spend from the{' '}
+            {membership.company_name} wallet, up to their own daily spend cap.
           </p>
         </div>
-        <ActivitySnapshot totals={activity.totals} />
-        <PeopleManager
-          initialPeople={people}
-          initialInvitations={invitations.data}
+        <MachinesManager
+          initialMachines={machines}
           currentMembershipId={membership.id}
           activity={activity.members}
         />
