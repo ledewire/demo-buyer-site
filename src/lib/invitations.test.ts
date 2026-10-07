@@ -3,6 +3,8 @@ import {
   companyLanding,
   invitationRefusalMessage,
   pickInvitationTokens,
+  refusedInvitationLanding,
+  refusedInvitationNotice,
   withInvitationTokens,
 } from './invitations'
 
@@ -74,5 +76,36 @@ describe('companyLanding', () => {
   it('sends an admin to the members page and a member to the wallet', () => {
     expect(companyLanding('admin')).toBe('/company/members')
     expect(companyLanding('member')).toBe('/wallet')
+  })
+})
+
+describe('refusedInvitationLanding and refusedInvitationNotice', () => {
+  function noticeFor(landing: string) {
+    const url = new URL(landing, 'http://localhost')
+    expect(url.pathname).toBe('/dashboard')
+    return refusedInvitationNotice(Object.fromEntries(url.searchParams))
+  }
+
+  it('round-trips a refused Company invitation to a dashboard notice', () => {
+    expect(noticeFor(refusedInvitationLanding('expired', 'company'))).toBe(
+      "You're signed in, but your Company invitation wasn't accepted. This invitation has expired. Ask your Company admin to send a new one.",
+    )
+  })
+
+  it('round-trips a refused store invitation', () => {
+    expect(noticeFor(refusedInvitationLanding('expired', 'store'))).toBe(
+      "You're signed in, but your store invitation wasn't accepted. This invitation has expired. Ask the store owner to send a new one.",
+    )
+  })
+
+  it('treats a missing reason as invalid', () => {
+    expect(refusedInvitationLanding(undefined, 'company')).toBe(
+      '/dashboard?invitation_refused=invalid',
+    )
+  })
+
+  it('shows no notice without the parameter', () => {
+    expect(refusedInvitationNotice({})).toBeNull()
+    expect(refusedInvitationNotice({ invitation_refused: ['a', 'b'] })).toBeNull()
   })
 })

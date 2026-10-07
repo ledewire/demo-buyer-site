@@ -11,8 +11,7 @@ import { companyLanding, invitationRefusalMessage } from './invitations'
 export function invitationRefusedResponse(err: unknown): NextResponse | null {
   if (!(err instanceof LedewireError) || err.type !== 'invitation_not_accepted') return null
   const reason = typeof err.details?.reason === 'string' ? err.details.reason : undefined
-  const invitation =
-    typeof err.details?.invitation === 'string' ? err.details.invitation : undefined
+  const invitation = err.details?.invitation === 'store' ? 'store' : 'company'
   return NextResponse.json(
     { error: invitationRefusalMessage(reason, invitation), type: err.type, reason },
     { status: 422 },

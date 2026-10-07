@@ -135,6 +135,28 @@ describe('POST /api/auth/google', () => {
       expect(mockMembershipGet).not.toHaveBeenCalled()
     })
 
+    it('reports a refused store invitation for an existing account', async () => {
+      mockLoginWithGoogle.mockResolvedValue({
+        ...authRes,
+        invitations: { store: { accepted: false, reason: 'expired' } },
+      })
+      const res = await POST(makeRequest({ id_token: 'g', invitation_token: 'S' }))
+      expect(await res.json()).toEqual({
+        ok: true,
+        redirect: '/dashboard?invitation_refused=expired&invitation=store',
+      })
+    })
+
+    it('signs in with an accepted store invitation and lands on the dashboard', async () => {
+      mockLoginWithGoogle.mockResolvedValue({
+        ...authRes,
+        invitations: { store: { accepted: true } },
+      })
+      const res = await POST(makeRequest({ id_token: 'g', invitation_token: 'S' }))
+      expect(await res.json()).toEqual({ ok: true })
+      expect(mockMembershipGet).not.toHaveBeenCalled()
+    })
+
     it.each([
       ['expired', 'This invitation has expired. Ask your Company admin to send a new one.'],
       [

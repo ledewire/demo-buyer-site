@@ -9,15 +9,18 @@ export interface InvitationTokens {
   invitation_token?: string
 }
 
-function token(value: unknown): string | undefined {
+/** Which kind of invitation a token or a refusal is about. */
+export type InvitationKind = 'company' | 'store'
+
+function nonBlank(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
 }
 
 /** Picks the invitation tokens out of a query string or request body, dropping anything else. */
 export function pickInvitationTokens(source: Record<string, unknown>): InvitationTokens {
   const tokens: InvitationTokens = {}
-  const company = token(source.company_invitation_token)
-  const store = token(source.invitation_token)
+  const company = nonBlank(source.company_invitation_token)
+  const store = nonBlank(source.invitation_token)
   if (company) tokens.company_invitation_token = company
   if (store) tokens.invitation_token = store
   return tokens
@@ -38,7 +41,7 @@ export function withInvitationTokens(path: string, tokens: InvitationTokens): st
  */
 export function invitationRefusalMessage(
   reason: string | undefined,
-  invitation: string | undefined = 'company',
+  invitation: InvitationKind = 'company',
 ): string {
   const sender = invitation === 'store' ? 'the store owner' : 'your Company admin'
   switch (reason) {
@@ -62,4 +65,32 @@ export function invitationRefusalMessage(
 /** Where a buyer lands after joining a Company. */
 export function companyLanding(role: CompanyRole): string {
   return role === 'admin' ? '/company/members' : '/wallet'
+}
+
+/**
+ * Where a buyer goes when they signed in but an invitation they carried was
+ * refused: the dashboard, which reads the reason back with
+ * {@link refusedInvitationNotice}.
+ */
+export function refusedInvitationLanding(
+  reason: string | undefined,
+  invitation: InvitationKind,
+): string {
+  const query = new URLSearchParams({ invitation_refused: reason ?? 'invalid' })
+  if (invitation === 'store') query.set('invitation', 'store')
+  return `/dashboard?${query}`
+}
+
+/**
+ * The dashboard notice for a {@link refusedInvitationLanding} query, or null
+ * without one. Only fixed text, never the query value, reaches the page.
+ */
+export function refusedInvitationNotice(params: {
+  invitation_refused?: string | string[]
+  invitation?: string | string[]
+}): string | null {
+  if (typeof params.invitation_refused !== 'string') return null
+  const invitation: InvitationKind = params.invitation === 'store' ? 'store' : 'company'
+  const kind = invitation === 'store' ? 'store' : 'Company'
+  return `You're signed in, but your ${kind} invitation wasn't accepted. ${invitationRefusalMessage(params.invitation_refused, invitation)}`
 }
