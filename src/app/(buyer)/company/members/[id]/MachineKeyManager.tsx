@@ -24,11 +24,20 @@ interface KeyRow {
   last_used_at: string | null
 }
 
-/** Per kind: the section title, the request field naming a key, and its form label. */
-const KINDS = {
-  buyer: { title: 'Buyer keys', nameField: 'name', nameLabel: 'Key name' },
-  mcp: { title: 'MCP keys', nameField: 'label', nameLabel: 'Label' },
-} as const
+interface KindConfig {
+  /** Heads the section and labels its table. */
+  title: string
+  /** The request field naming a key, and its form label. */
+  nameField: 'name' | 'label'
+  nameLabel: string
+  /** The Scopes a key of this kind may carry, at least one required; null when it has none. */
+  scopeOptions: readonly McpKeyScope[] | null
+}
+
+const KINDS: Record<Props['kind'], KindConfig> = {
+  buyer: { title: 'Buyer keys', nameField: 'name', nameLabel: 'Key name', scopeOptions: null },
+  mcp: { title: 'MCP keys', nameField: 'label', nameLabel: 'Label', scopeOptions: MCP_KEY_SCOPES },
+}
 
 function toRow(key: BuyerMachineKey | McpMachineKey): KeyRow {
   const { id, key: publicKey, created_at, last_used_at } = key
@@ -48,13 +57,13 @@ type Props = {
 /** Lists, issues and revokes a Machine user's keys of one kind. */
 export default function MachineKeyManager({ kind, apiPath, initialKeys }: Props) {
   // eslint-disable-next-line security/detect-object-injection -- kind is the 'buyer' | 'mcp' prop
-  const { title, nameField, nameLabel } = KINDS[kind]
+  const { title, nameField, nameLabel, scopeOptions } = KINDS[kind]
   const [keys, setKeys] = useState(() => initialKeys.map(toRow))
   // The new key's one-time secret, with the key id an agent presents alongside it.
   const [issued, setIssued] = useState<{ key: string; secret: string } | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
-  // An MCP key's scopes, in MCP_KEY_SCOPES order; a Buyer key has none.
+  // The chosen scopes, in scopeOptions order.
   const [scopes, setScopes] = useState<McpKeyScope[]>([])
   const [issuing, setIssuing] = useState(false)
   const [revoking, setRevoking] = useState<string | null>(null)
@@ -62,12 +71,10 @@ export default function MachineKeyManager({ kind, apiPath, initialKeys }: Props)
   const secretHeadingId = useId()
   const nameInputId = useId()
   const scopesHintId = useId()
-  const needsScope = kind === 'mcp' && scopes.length === 0
+  const needsScope = scopeOptions !== null && scopes.length === 0
 
-  function toggleScope(scope: McpKeyScope) {
-    setScopes((prev) =>
-      MCP_KEY_SCOPES.filter((s) => (s === scope ? !prev.includes(s) : prev.includes(s))),
-    )
+  function toggleScope(options: readonly McpKeyScope[], scope: McpKeyScope) {
+    setScopes((prev) => options.filter((s) => (s === scope ? !prev.includes(s) : prev.includes(s))))
   }
 
   async function handleIssue(e: React.FormEvent) {
@@ -79,9 +86,7 @@ export default function MachineKeyManager({ kind, apiPath, initialKeys }: Props)
       const res = await fetch(apiPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          kind === 'mcp' ? { [nameField]: name, scopes } : { [nameField]: name },
-        ),
+        body: JSON.stringify(scopeOptions ? { [nameField]: name, scopes } : { [nameField]: name }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -190,19 +195,19 @@ export default function MachineKeyManager({ kind, apiPath, initialKeys }: Props)
               className="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
           </div>
-          {kind === 'mcp' && (
+          {scopeOptions && (
             <fieldset aria-describedby={scopesHintId}>
               <legend className="block text-sm font-medium text-gray-700">Scopes</legend>
               <p id={scopesHintId} className="text-xs text-gray-500">
                 Choose at least one.
               </p>
               <div className="mt-2 space-y-1">
-                {MCP_KEY_SCOPES.map((scope) => (
+                {scopeOptions.map((scope) => (
                   <label key={scope} className="flex items-center gap-2 text-sm text-gray-700">
                     <input
                       type="checkbox"
                       checked={scopes.includes(scope)}
-                      onChange={() => toggleScope(scope)}
+                      onChange={() => toggleScope(scopeOptions, scope)}
                       className="rounded-sm border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     />
                     <span className="font-mono">{scope}</span>
@@ -245,7 +250,7 @@ export default function MachineKeyManager({ kind, apiPath, initialKeys }: Props)
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Key
                 </th>
-                {kind === 'mcp' && (
+                {scopeOptions && (
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Scopes
                   </th>
@@ -266,7 +271,7 @@ export default function MachineKeyManager({ kind, apiPath, initialKeys }: Props)
                 <tr key={k.id}>
                   <td className="px-4 py-3 text-sm text-gray-800">{k.name}</td>
                   <td className="px-4 py-3 text-sm font-mono text-gray-600">{k.key}</td>
-                  {kind === 'mcp' && (
+                  {scopeOptions && (
                     <td className="px-4 py-3 text-sm font-mono text-gray-600">
                       {k.scopes?.join(', ')}
                     </td>

@@ -88,6 +88,12 @@ describe('POST /api/company/machine-users/:id/mcp-keys', () => {
     expect(await res.json()).toEqual(created)
   })
 
+  it('sends a repeated scope once', async () => {
+    mockCreate.mockResolvedValue({})
+    await post({ label: 'research', scopes: ['mcp:search', 'mcp:search'] })
+    expect(mockCreate).toHaveBeenCalledWith('mu-1', { label: 'research', scopes: ['mcp:search'] })
+  })
+
   it.each([
     ['a deactivated machine user', 409],
     ['a duplicate label', 422],

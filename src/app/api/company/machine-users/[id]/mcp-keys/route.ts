@@ -36,7 +36,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     const client = await createBuyerClient()
     const created = await client.company.machineUsers.mcpKeys.create(id, {
       label: label.trim(),
-      scopes,
+      scopes: [...new Set(scopes)],
     })
     // The secret is returned once; no cache may keep a copy.
     return NextResponse.json(created, { status: 201, headers: { 'Cache-Control': 'no-store' } })
