@@ -1,4 +1,4 @@
-import type { CompanySpendList } from '@ledewire/node'
+import type { CompanyPurchaseList, CompanySpendList } from '@ledewire/node'
 import { createBuyerClient } from './ledewire'
 
 /**
@@ -59,29 +59,68 @@ function spendById(list: CompanySpendList): Map<string, number> {
   return new Map(list.data.map((row) => [row.member.id, row.spend_cents]))
 }
 
+/** The Company's captured spend and purchase count over one window. */
+export interface WindowTotals {
+  spendCents: number
+  purchaseCount: number
+}
+
+/** The Company's totals for each activity window. */
+export type CompanyTotals = Record<keyof ActivityWindows, WindowTotals>
+
+/** A window's totals: its spend rows summed, its purchase count from the listing's total. */
+function windowTotals(spend: CompanySpendList, purchases: CompanyPurchaseList): WindowTotals {
+  return {
+    spendCents: spend.data.reduce((sum, row) => sum + row.spend_cents, 0),
+    purchaseCount: purchases.pagination.total,
+  }
+}
+
+export interface CompanyActivity {
+  /** Each member's spend, keyed by membership id. */
+  members: Record<string, MemberActivity>
+  totals: CompanyTotals
+}
+
 /**
- * Each member's spend today and over the last 30 days, keyed by membership id,
- * with an entry for every id in `memberIds` — a member with no spend reads as 0.
- * Days are the Company's, read from the admin's own spend window timezone. One
- * `company.spend.list` call per window, however many members there are.
+ * The Company's activity: each member's spend today and over the last 30 days,
+ * keyed by membership id, with an entry for every id in `memberIds` — a member
+ * with no spend reads as 0 — and the Company's spend and purchase count for
+ * today, 7 days and 30 days. Days are the Company's, read from the admin's own
+ * spend window timezone. A fixed number of SDK calls, however many members
+ * there are: one `company.spend.list` and one single-row
+ * `company.purchases.list` (for its `pagination.total`) per window.
  */
-export async function getMemberActivity(
+export async function getCompanyActivity(
   memberIds: string[],
   now: Date = new Date(),
-): Promise<Record<string, MemberActivity>> {
+): Promise<CompanyActivity> {
   const client = await createBuyerClient()
   const { spend_window_timezone } = await client.user.spendCap.get()
   const windows = activityWindows(spend_window_timezone, now)
-  const [today, last30] = (
-    await Promise.all([
-      client.company.spend.list(windows.today),
-      client.company.spend.list(windows.last30),
+  const fetchWindow = (window: DayWindow) =>
+    Promise.all([
+      client.company.spend.list(window),
+      client.company.purchases.list({ ...window, per_page: 1 }),
     ])
-  ).map(spendById)
-  return Object.fromEntries(
-    memberIds.map((id) => [
-      id,
-      { todayCents: today.get(id) ?? 0, last30Cents: last30.get(id) ?? 0 },
-    ]),
-  )
+  const [todayLists, last7Lists, last30Lists] = await Promise.all([
+    fetchWindow(windows.today),
+    fetchWindow(windows.last7),
+    fetchWindow(windows.last30),
+  ])
+  const todayById = spendById(todayLists[0])
+  const last30ById = spendById(last30Lists[0])
+  return {
+    members: Object.fromEntries(
+      memberIds.map((id) => [
+        id,
+        { todayCents: todayById.get(id) ?? 0, last30Cents: last30ById.get(id) ?? 0 },
+      ]),
+    ),
+    totals: {
+      today: windowTotals(...todayLists),
+      last7: windowTotals(...last7Lists),
+      last30: windowTotals(...last30Lists),
+    },
+  }
 }
