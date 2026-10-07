@@ -83,28 +83,6 @@ describe('CompanyMembersPage', () => {
         },
       ],
     } as never)
-    // A distinct purchase count per window, told apart by its length in days.
-    const purchasesByDays: Record<number, number> = { 0: 2, 6: 9, 29: 41 }
-    mockCompany.purchases.list.mockImplementation((async ({
-      from,
-      to,
-    }: {
-      from: string
-      to: string
-    }) => {
-      const total = purchasesByDays[(Date.parse(to) - Date.parse(from)) / 86_400_000]
-      return {
-        data: [],
-        pagination: {
-          current_page: 1,
-          per_page: 1,
-          total,
-          total_pages: total,
-          next_page: null,
-          prev_page: null,
-        },
-      }
-    }) as never)
   })
 
   it('points a buyer in no Company to joining one', async () => {
@@ -161,30 +139,13 @@ describe('CompanyMembersPage', () => {
     expect(mockCompany.spend.list).not.toHaveBeenCalled()
   })
 
-  it("shows an admin the Company's activity snapshot", async () => {
+  it("does not show an admin the Company's activity snapshot", async () => {
     await renderPage()
-    for (const [name, purchases] of [
-      ['Today', '2 purchases'],
-      ['Last 7 days', '9 purchases'],
-      ['Last 30 days', '41 purchases'],
-    ]) {
-      const group = screen.getByRole('group', { name })
-      expect(within(group).getByText('$3.20')).toBeInTheDocument()
-      expect(within(group).getByText(purchases)).toBeInTheDocument()
-    }
-    expect(
-      screen.getByText('Spend counts captured amounts only, not live bulk holds.'),
-    ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View Company purchases' })).toHaveAttribute(
-      'href',
-      '/company/purchases',
-    )
-  })
-
-  it('does not show a non-admin the activity snapshot', async () => {
-    vi.mocked(getCompanyMembership).mockResolvedValue({ ...adminMembership, role: 'member' })
-    await renderPage()
+    expect(screen.queryByRole('region', { name: 'Company activity' })).not.toBeInTheDocument()
     expect(screen.queryByRole('group', { name: 'Today' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Spend counts captured amounts only, not live bulk holds.'),
+    ).not.toBeInTheDocument()
     expect(mockCompany.purchases.list).not.toHaveBeenCalled()
   })
 

@@ -30,11 +30,17 @@ describe('ActivitySnapshot', () => {
     ).toBeInTheDocument()
   })
 
-  it('links to Company Purchases', () => {
+  it('is labelled as Company-wide activity, apart from the filters', () => {
     render(<ActivitySnapshot totals={totals} />)
-    expect(screen.getByRole('link', { name: 'View Company purchases' })).toHaveAttribute(
-      'href',
-      '/company/purchases',
-    )
+    const section = screen.getByRole('region', { name: 'Company activity' })
+    expect(within(section).getByRole('group', { name: 'Today' })).toBeInTheDocument()
+    expect(
+      within(section).getByText('All members, whatever the filters below.'),
+    ).toBeInTheDocument()
+  })
+
+  it('does not link anywhere', () => {
+    render(<ActivitySnapshot totals={totals} />)
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 })

@@ -2,7 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/ledewire', () => import('@/__mocks__/ledewire-client'))
 
-import { activityWindows, getCompanyActivity, getMemberSpend } from './company-activity'
+import {
+  activityWindows,
+  getCompanyActivity,
+  getCompanyTotals,
+  getMemberSpend,
+} from './company-activity'
 import { mockCompany, mockUserSpendCap } from '@/__mocks__/ledewire-client'
 
 // 02:00 UTC on 10 March is still 9 March (22:00 EDT) in New York.
@@ -96,13 +101,25 @@ describe('getCompanyActivity', () => {
     }
     const forOne = await sdkCallsFor(1)
     expect(await sdkCallsFor(50)).toBe(forOne)
-    expect(forOne).toBe(7)
+    expect(forOne).toBe(3)
+  })
+
+  it('does not read purchases', async () => {
+    await getCompanyActivity(['mem-1'], NOW)
+    expect(mockCompany.purchases.list).not.toHaveBeenCalled()
   })
 
   it('reads a member with no spend row as $0 today and $0 over 30 days', async () => {
     mockCompany.spend.list.mockResolvedValue({ data: [spendRow('mem-1', 500)] } as never)
     const { members } = await getCompanyActivity(['mem-1', 'mem-new'], NOW)
     expect(members['mem-new']).toEqual({ todayCents: 0, last30Cents: 0 })
+  })
+})
+
+describe('getCompanyTotals', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUserSpendCap.get.mockResolvedValue({ spend_window_timezone: 'America/New_York' } as never)
   })
 
   it("sums the Company's spend and reads its purchase count from pagination.total per window", async () => {
@@ -122,7 +139,7 @@ describe('getCompanyActivity', () => {
     mockCompany.purchases.list.mockImplementation((async ({ from }: { from: string }) =>
       purchasePage(purchases[from])) as never)
 
-    expect((await getCompanyActivity(['mem-0'], NOW)).totals).toEqual({
+    expect(await getCompanyTotals(NOW)).toEqual({
       today: { spendCents: 320, purchaseCount: 2 },
       last7: { spendCents: 1400, purchaseCount: 9 },
       last30: { spendCents: 6000, purchaseCount: 41 },

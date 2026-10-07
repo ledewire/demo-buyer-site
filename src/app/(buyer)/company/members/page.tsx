@@ -6,7 +6,6 @@ import { getCompanyActivity } from '@/lib/company-activity'
 import { AuthError, LedewireError } from '@ledewire/node'
 import CompanyTabs from '../CompanyTabs'
 import NotInCompany from '../NotInCompany'
-import ActivitySnapshot from './ActivitySnapshot'
 import PeopleManager from './PeopleManager'
 
 export default async function CompanyMembersPage() {
@@ -38,7 +37,6 @@ export default async function CompanyMembersPage() {
             daily spend cap.
           </p>
         </div>
-        <ActivitySnapshot totals={activity.totals} />
         <PeopleManager
           initialPeople={people}
           initialInvitations={invitations.data}
