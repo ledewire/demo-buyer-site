@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { CompanyInvitation, CompanyMember } from '@ledewire/node'
+import type { MemberActivity } from '@/lib/company-activity'
 import { formatDate } from '@/lib/format'
 import { MAX_MACHINE_NAME_LENGTH } from '@/lib/machine-users'
 import MemberRow, { type Role } from './MemberRow'
@@ -12,7 +13,11 @@ interface Props {
   initialInvitations: CompanyInvitation[]
   /** The viewer's own membership id, marked "(you)" in the table. */
   currentMembershipId: string
+  /** Each member's recent spend by membership id; a member missing from it has spent nothing. */
+  activity: Record<string, MemberActivity>
 }
+
+const NO_ACTIVITY: MemberActivity = { todayCents: 0, last30Cents: 0 }
 
 const TH = 'px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
 
@@ -20,6 +25,7 @@ export default function MembersManager({
   initialMembers,
   initialInvitations,
   currentMembershipId,
+  activity,
 }: Props) {
   const router = useRouter()
   const [members, setMembers] = useState(initialMembers)
@@ -172,6 +178,7 @@ export default function MembersManager({
               <th className={TH}>{showRole ? 'Email' : 'Type'}</th>
               {showRole && <th className={TH}>Role</th>}
               <th className={TH}>Daily spend cap</th>
+              <th className={TH}>Spend</th>
               <th className={TH}>Joined</th>
               <th className={TH}>
                 <span className="sr-only">Actions</span>
@@ -183,6 +190,7 @@ export default function MembersManager({
               <MemberRow
                 key={m.id}
                 member={m}
+                activity={activity[m.id] ?? NO_ACTIVITY}
                 showRole={showRole}
                 isCurrent={m.id === currentMembershipId}
                 busy={busy === m.id}

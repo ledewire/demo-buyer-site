@@ -1,12 +1,15 @@
 'use client'
 
 import type { CompanyMember } from '@ledewire/node'
+import type { MemberActivity } from '@/lib/company-activity'
 import { formatCents, formatDate } from '@/lib/format'
 
 export type Role = CompanyMember['role']
 
 interface Props {
   member: CompanyMember
+  /** The member's spend today and over the last 30 days. */
+  activity: MemberActivity
   /** False in tables of Machine users, which are always non-admin members. */
   showRole: boolean
   /** True when this row is the viewer's own membership, marked "(you)". */
@@ -24,6 +27,7 @@ interface Props {
 /** One member of the Company, human or machine, in a members table. */
 export default function MemberRow({
   member: m,
+  activity,
   showRole,
   isCurrent,
   busy,
@@ -98,6 +102,17 @@ export default function MemberRow({
             </button>
           </div>
         )}
+      </td>
+      <td className="px-4 py-3 text-sm text-gray-800">
+        <div className="flex items-center gap-2">
+          <span>{`${formatCents(activity.todayCents)} of ${formatCents(m.daily_spend_limit_cents)} today`}</span>
+          {activity.todayCents >= m.daily_spend_limit_cents && (
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full text-red-700 bg-red-50">
+              At cap
+            </span>
+          )}
+        </div>
+        <div className="text-xs text-gray-500">{`${formatCents(activity.last30Cents)} last 30 days`}</div>
       </td>
       <td className="px-4 py-3 text-sm text-gray-500">{formatDate(m.joined_at)}</td>
       <td className="px-4 py-3 text-right">

@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import MembersManager from './MembersManager'
 import type { CompanyInvitation, CompanyMember } from '@ledewire/node'
+import type { MemberActivity } from '@/lib/company-activity'
 
 const mockRefresh = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: mockRefresh }) }))
@@ -43,14 +44,23 @@ function mockFetch(status: number, body: object) {
 
 const bob = makeMember({ id: 'mem-2', name: 'Bob', email: 'bob@example.com', role: 'member' })
 
-function renderManager(members = [makeMember(), bob], invitations: CompanyInvitation[] = []) {
+function renderManager(
+  members = [makeMember(), bob],
+  invitations: CompanyInvitation[] = [],
+  activity: Record<string, MemberActivity> = {},
+) {
   return render(
     <MembersManager
       initialMembers={members}
       initialInvitations={invitations}
       currentMembershipId="mem-1"
+      activity={activity}
     />,
   )
+}
+
+function rowFor(name: string) {
+  return screen.getByText(name).closest('tr')!
 }
 
 describe('MembersManager', () => {
@@ -115,6 +125,34 @@ describe('MembersManager', () => {
     expect(screen.getByText('Machine user')).toBeInTheDocument()
   })
 
+  it("shows each member's spend today against their cap, and over 30 days", () => {
+    renderManager(undefined, undefined, {
+      'mem-1': { todayCents: 320, last30Cents: 4500 },
+      'mem-2': { todayCents: 0, last30Cents: 0 },
+    })
+    expect(within(rowFor('Ada Admin')).getByText('$3.20 of $10.00 today')).toBeInTheDocument()
+    expect(within(rowFor('Ada Admin')).getByText('$45.00 last 30 days')).toBeInTheDocument()
+    expect(within(rowFor('Bob')).getByText('$0.00 of $10.00 today')).toBeInTheDocument()
+    expect(within(rowFor('Bob')).getByText('$0.00 last 30 days')).toBeInTheDocument()
+  })
+
+  it('flags a member whose spend today is at or over their cap', () => {
+    const carol = makeMember({
+      id: 'mem-3',
+      name: 'Carol',
+      email: 'carol@example.com',
+      role: 'member',
+    })
+    renderManager([makeMember(), bob, carol], [], {
+      'mem-1': { todayCents: 999, last30Cents: 999 },
+      'mem-2': { todayCents: 1000, last30Cents: 1000 },
+      'mem-3': { todayCents: 1500, last30Cents: 1500 },
+    })
+    expect(within(rowFor('Ada Admin')).queryByText('At cap')).not.toBeInTheDocument()
+    expect(within(rowFor('Bob')).getByText('At cap')).toBeInTheDocument()
+    expect(within(rowFor('Carol')).getByText('At cap')).toBeInTheDocument()
+  })
+
   it('changes a member role', async () => {
     mockFetch(200, { ...bob, role: 'admin' })
     renderManager()
@@ -151,6 +189,19 @@ describe('MembersManager', () => {
       ),
     )
     expect(await screen.findByText('$25.50')).toBeInTheDocument()
+  })
+
+  it('reads usage against the new cap once it is saved', async () => {
+    mockFetch(200, { ...bob, daily_spend_limit_cents: 2550 })
+    renderManager(undefined, undefined, { 'mem-2': { todayCents: 1000, last30Cents: 1000 } })
+    expect(within(rowFor('Bob')).getByText('At cap')).toBeInTheDocument()
+    await userEvent.click(screen.getByLabelText('Edit daily spend cap for Bob'))
+    const input = screen.getByLabelText('Daily spend cap for Bob (USD)')
+    await userEvent.clear(input)
+    await userEvent.type(input, '25.50')
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('$10.00 of $25.50 today')).toBeInTheDocument()
+    expect(within(rowFor('Bob')).queryByText('At cap')).not.toBeInTheDocument()
   })
 
   it('rejects a negative cap without calling the API', async () => {
@@ -345,6 +396,7 @@ describe('MembersManager', () => {
           initialMembers={[makeMember(), bob, machine]}
           initialInvitations={[]}
           currentMembershipId="mem-1"
+          activity={{}}
         />,
       )
       const machines = screen.getByRole('region', { name: 'Machines' })
