@@ -5,12 +5,13 @@ import { getCompanyMembership } from '@/lib/company'
 import { AuthError, LedewireError } from '@ledewire/node'
 import CompanyTabs from '../CompanyTabs'
 import NotInCompany from '../NotInCompany'
+import CompanyBalance from './CompanyBalance'
 import PendingTopUps from './PendingTopUps'
 import WalletFund from '../../wallet/WalletFund'
 
 /**
- * Where a Company admin funds the Company wallet and follows top-ups until
- * they settle. The API exposes no Company balance yet (ledewire/api#1195).
+ * Where a Company admin sees the Company balance, funds the Company wallet and
+ * follows top-ups until they settle.
  */
 export default async function CompanyWalletPage() {
   await requireAuth()
@@ -27,7 +28,10 @@ export default async function CompanyWalletPage() {
     }
 
     const client = await createBuyerClient()
-    const topUps = await client.company.wallet.listPendingTopUps()
+    const [wallet, topUps] = await Promise.all([
+      client.company.wallet.get().catch(balanceUnavailable),
+      client.company.wallet.listPendingTopUps(),
+    ])
 
     return (
       <div className="space-y-8">
@@ -41,6 +45,11 @@ export default async function CompanyWalletPage() {
           </div>
           <WalletFund target="company" />
         </div>
+        {wallet ? (
+          <CompanyBalance wallet={wallet} />
+        ) : (
+          <p className="text-sm text-gray-500">Balance unavailable</p>
+        )}
         <div>
           <h2 className="text-lg font-semibold text-gray-800">Pending top-ups</h2>
           <p className="mt-1 mb-4 text-sm text-gray-500">
@@ -58,4 +67,13 @@ export default async function CompanyWalletPage() {
     }
     throw err
   }
+}
+
+/**
+ * The balance is a read-only extra: when it fails, the admin can still add
+ * funds and follow top-ups. An expired session still sends them to login.
+ */
+function balanceUnavailable(err: unknown): null {
+  if (err instanceof LedewireError && !(err instanceof AuthError)) return null
+  throw err
 }
