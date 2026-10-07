@@ -5,7 +5,7 @@ import { getCompanyMembership } from '@/lib/company'
 import { AuthError, LedewireError } from '@ledewire/node'
 import CompanyTabs from '../CompanyTabs'
 import NotInCompany from '../NotInCompany'
-import PendingTopUps from '../../wallet/PendingTopUps'
+import PendingTopUps from './PendingTopUps'
 import WalletFund from '../../wallet/WalletFund'
 
 /**

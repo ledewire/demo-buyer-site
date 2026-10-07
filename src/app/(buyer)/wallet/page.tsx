@@ -17,7 +17,7 @@ export default async function WalletPage() {
   try {
     const membership = await getCompanyMembership()
     // Awaited here, not rendered as async children, so their API errors reach this catch.
-    return membership ? await companyWallet(membership) : await personalWallet()
+    return membership ? await renderCompanyWallet(membership) : await renderPersonalWallet()
   } catch (err) {
     if (err instanceof AuthError) redirect('/login')
     if (err instanceof LedewireError) {
@@ -27,7 +27,7 @@ export default async function WalletPage() {
   }
 }
 
-async function personalWallet() {
+async function renderPersonalWallet() {
   const client = await createBuyerClient()
   const [balance, transactionList] = await Promise.all([
     client.wallet.balance(),
@@ -66,7 +66,7 @@ async function personalWallet() {
  * so the page shows the viewer's cap headroom. Admins fund the wallet and track
  * top-ups on the Company Wallet page (/company/wallet).
  */
-async function companyWallet(membership: CompanyMembership) {
+async function renderCompanyWallet(membership: CompanyMembership) {
   const client = await createBuyerClient()
   const isAdmin = membership.role === 'admin'
   const [balance, recent] = await Promise.all([

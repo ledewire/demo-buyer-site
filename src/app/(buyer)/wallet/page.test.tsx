@@ -48,6 +48,8 @@ describe('WalletPage', () => {
     expect(screen.getByRole('heading', { name: 'Wallet' })).toBeInTheDocument()
     expect(screen.getByText('$25.00')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Fund wallet' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Transaction History' })).toBeInTheDocument()
+    expect(screen.getByText('No transactions yet.')).toBeInTheDocument()
   })
 
   it('shows a non-admin member their headroom and no way to fund the Company wallet', async () => {
