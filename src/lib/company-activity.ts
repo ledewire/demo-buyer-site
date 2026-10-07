@@ -54,6 +54,16 @@ export function activityWindows(timeZone: string, now: Date): ActivityWindows {
   }
 }
 
+/**
+ * A buyer client and the activity windows in the Company's days, read from the
+ * admin's own spend window timezone.
+ */
+async function companyWindows(now: Date) {
+  const client = await createBuyerClient()
+  const { spend_window_timezone } = await client.user.spendCap.get()
+  return { client, windows: activityWindows(spend_window_timezone, now) }
+}
+
 /** Spend cents per membership id, from a `company.spend.list` response. */
 function spendById(list: CompanySpendList): Map<string, number> {
   return new Map(list.data.map((row) => [row.member.id, row.spend_cents]))
@@ -92,9 +102,7 @@ export async function getCompanyActivity(
   memberIds: string[],
   now: Date = new Date(),
 ): Promise<CompanyActivity> {
-  const client = await createBuyerClient()
-  const { spend_window_timezone } = await client.user.spendCap.get()
-  const windows = activityWindows(spend_window_timezone, now)
+  const { client, windows } = await companyWindows(now)
   const [today, last30] = await Promise.all([
     client.company.spend.list(windows.today),
     client.company.spend.list(windows.last30),
@@ -118,9 +126,7 @@ export async function getCompanyActivity(
  * `pagination.total`) per window.
  */
 export async function getCompanyTotals(now: Date = new Date()): Promise<CompanyTotals> {
-  const client = await createBuyerClient()
-  const { spend_window_timezone } = await client.user.spendCap.get()
-  const windows = activityWindows(spend_window_timezone, now)
+  const { client, windows } = await companyWindows(now)
   const totalsIn = async (window: DayWindow) =>
     windowTotals(
       ...(await Promise.all([
@@ -152,9 +158,7 @@ export async function getMemberSpend(
   membershipId: string,
   now: Date = new Date(),
 ): Promise<MemberSpend> {
-  const client = await createBuyerClient()
-  const { spend_window_timezone } = await client.user.spendCap.get()
-  const windows = activityWindows(spend_window_timezone, now)
+  const { client, windows } = await companyWindows(now)
   const spendIn = async (window: DayWindow) => {
     const list = await client.company.spend.list({ member: membershipId, ...window })
     return spendById(list).get(membershipId) ?? 0
