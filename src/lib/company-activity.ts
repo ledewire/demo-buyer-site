@@ -20,8 +20,16 @@ const DAY_MS = 24 * 60 * 60 * 1000
 
 /** The calendar date in `timeZone` at the instant `now`, as `YYYY-MM-DD`. */
 function dateIn(timeZone: string, now: Date): string {
-  // en-CA formats dates as YYYY-MM-DD.
-  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(now)
+  // Assemble from parts rather than trust any locale's date format.
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((p) => p.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}`
 }
 
 /** The `YYYY-MM-DD` date `days` before `date`, by the calendar. */
@@ -29,14 +37,15 @@ function daysBefore(date: string, days: number): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) - days * DAY_MS).toISOString().slice(0, 10)
 }
 
-/**
- * Today, the last 7 days and the last 30 days, inclusive of today, as calendar
- * days in the Company's timezone.
- */
-export function activityWindows(
-  timeZone: string,
-  now: Date,
-): { today: DayWindow; last7: DayWindow; last30: DayWindow } {
+/** Today, the last 7 days and the last 30 days, each inclusive of today. */
+export interface ActivityWindows {
+  today: DayWindow
+  last7: DayWindow
+  last30: DayWindow
+}
+
+/** The activity windows as calendar days in the Company's timezone. */
+export function activityWindows(timeZone: string, now: Date): ActivityWindows {
   const today = dateIn(timeZone, now)
   return {
     today: { from: today, to: today },
