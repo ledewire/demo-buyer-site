@@ -4,9 +4,17 @@ import { createBuyerClient } from '@/lib/ledewire'
 import { AuthError, LedewireError } from '@ledewire/node'
 import { formatCents } from '@/lib/format'
 import { listItems } from '@/lib/list-items'
+import { invitationRefusalMessage } from '@/lib/invitations'
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invitation_refused?: string | string[] }>
+}) {
   await requireAuth()
+  // Set by a Google sign-in whose Company invitation was refused; the account
+  // signed in anyway. Only fixed text is shown, never the query value.
+  const { invitation_refused: refusedReason } = await searchParams
 
   try {
     const client = await createBuyerClient()
@@ -22,6 +30,15 @@ export default async function DashboardPage() {
     return (
       <div className="space-y-8">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        {typeof refusedReason === 'string' && (
+          <p
+            role="status"
+            className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-sm px-3 py-2"
+          >
+            You&apos;re signed in, but your Company invitation wasn&apos;t accepted.{' '}
+            {invitationRefusalMessage(refusedReason)}
+          </p>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {balance.company_name ? (
             // A Company member never sees the Company balance — show their cap headroom.

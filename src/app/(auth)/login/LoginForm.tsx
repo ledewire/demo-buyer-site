@@ -4,12 +4,15 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import GoogleSignInButton from '@/components/GoogleSignInButton'
+import { withInvitationTokens, type InvitationTokens } from '@/lib/invitations'
 
 interface Props {
   googleClientId: string | null
+  /** Invitation tokens carried over from the signup link. */
+  invitationTokens?: InvitationTokens
 }
 
-export default function LoginForm({ googleClientId }: Props) {
+export default function LoginForm({ googleClientId, invitationTokens = {} }: Props) {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -33,7 +36,11 @@ export default function LoginForm({ googleClientId }: Props) {
       if (!res.ok) {
         setError(data.error ?? 'Login failed')
       } else {
-        router.push('/dashboard')
+        // Password sign-in can't carry an invitation, so finish it on /join.
+        const companyToken = invitationTokens.company_invitation_token
+        router.push(
+          companyToken ? `/join?${new URLSearchParams({ token: companyToken })}` : '/dashboard',
+        )
       }
     } catch {
       setError('Network error — please try again')
@@ -97,12 +104,16 @@ export default function LoginForm({ googleClientId }: Props) {
         {googleClientId && (
           <GoogleSignInButton
             googleClientId={googleClientId}
+            invitationTokens={invitationTokens}
             onError={handleGoogleError}
             onLoadingChange={handleGoogleLoading}
           />
         )}
         <div className="flex justify-between text-sm text-gray-600">
-          <Link href="/signup" className="hover:text-gray-900">
+          <Link
+            href={withInvitationTokens('/signup', invitationTokens)}
+            className="hover:text-gray-900"
+          >
             Create an account
           </Link>
           <Link href="/forgot-password" className="hover:text-gray-900">

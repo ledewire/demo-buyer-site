@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import type { InvitationTokens } from '@/lib/invitations'
 
 declare global {
   interface Window {
@@ -18,13 +19,23 @@ declare global {
 
 interface Props {
   googleClientId: string
+  /** Invitation tokens from the email link, accepted as the buyer signs in. */
+  invitationTokens?: InvitationTokens
   onError: (message: string) => void
   onLoadingChange: (loading: boolean) => void
 }
 
-export default function GoogleSignInButton({ googleClientId, onError, onLoadingChange }: Props) {
+export default function GoogleSignInButton({
+  googleClientId,
+  invitationTokens,
+  onError,
+  onLoadingChange,
+}: Props) {
   const router = useRouter()
   const btnRef = useRef<HTMLDivElement>(null)
+  // Primitives, so a fresh tokens object each render doesn't reload the GSI script.
+  const companyInvitationToken = invitationTokens?.company_invitation_token
+  const storeInvitationToken = invitationTokens?.invitation_token
 
   useEffect(() => {
     const handleCredential = async (response: { credential: string }) => {
@@ -34,13 +45,17 @@ export default function GoogleSignInButton({ googleClientId, onError, onLoadingC
         const res = await fetch('/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id_token: response.credential }),
+          body: JSON.stringify({
+            id_token: response.credential,
+            company_invitation_token: companyInvitationToken,
+            invitation_token: storeInvitationToken,
+          }),
         })
         const data = await res.json()
         if (!res.ok) {
           onError(data.error ?? 'Google sign-in failed')
         } else {
-          router.push('/dashboard')
+          router.push(data.redirect ?? '/dashboard')
         }
       } catch {
         onError('Network error — please try again')
@@ -70,7 +85,14 @@ export default function GoogleSignInButton({ googleClientId, onError, onLoadingC
     return () => {
       script.remove()
     }
-  }, [googleClientId, router, onError, onLoadingChange])
+  }, [
+    googleClientId,
+    companyInvitationToken,
+    storeInvitationToken,
+    router,
+    onError,
+    onLoadingChange,
+  ])
 
   return (
     <div className="flex flex-col items-center space-y-3">
