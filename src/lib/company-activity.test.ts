@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/ledewire', () => import('@/__mocks__/ledewire-client'))
 
-import { activityWindows, getCompanyActivity } from './company-activity'
+import { activityWindows, getCompanyActivity, getMemberActivity } from './company-activity'
 import { mockCompany, mockUserSpendCap } from '@/__mocks__/ledewire-client'
 
 // 02:00 UTC on 10 March is still 9 March (22:00 EDT) in New York.
@@ -131,6 +131,55 @@ describe('getCompanyActivity', () => {
       from: '2026-03-03',
       to: '2026-03-09',
       per_page: 1,
+    })
+  })
+})
+
+describe('getMemberActivity', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockUserSpendCap.get.mockResolvedValue({ spend_window_timezone: 'America/New_York' } as never)
+  })
+
+  it("reads one member's spend today, over 7 days and over 30 days with the member filter", async () => {
+    const spendByFrom: Record<string, number> = {
+      '2026-03-09': 320,
+      '2026-03-03': 1400,
+      '2026-02-08': 6000,
+    }
+    mockCompany.spend.list.mockImplementation((async ({ from }: { from: string }) => ({
+      data: [spendRow('mem-7', spendByFrom[from])],
+    })) as never)
+
+    expect(await getMemberActivity('mem-7', NOW)).toEqual({
+      todayCents: 320,
+      last7Cents: 1400,
+      last30Cents: 6000,
+    })
+    expect(mockCompany.spend.list).toHaveBeenCalledTimes(3)
+    expect(mockCompany.spend.list).toHaveBeenCalledWith({
+      member: 'mem-7',
+      from: '2026-03-09',
+      to: '2026-03-09',
+    })
+    expect(mockCompany.spend.list).toHaveBeenCalledWith({
+      member: 'mem-7',
+      from: '2026-03-03',
+      to: '2026-03-09',
+    })
+    expect(mockCompany.spend.list).toHaveBeenCalledWith({
+      member: 'mem-7',
+      from: '2026-02-08',
+      to: '2026-03-09',
+    })
+  })
+
+  it('reads a member with no spend row as $0', async () => {
+    mockCompany.spend.list.mockResolvedValue({ data: [] } as never)
+    expect(await getMemberActivity('mem-7', NOW)).toEqual({
+      todayCents: 0,
+      last7Cents: 0,
+      last30Cents: 0,
     })
   })
 })
