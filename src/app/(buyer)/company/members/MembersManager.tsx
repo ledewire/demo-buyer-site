@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { CompanyInvitation, CompanyMember } from '@ledewire/node'
 import { formatDate } from '@/lib/format'
+import { MAX_MACHINE_NAME_LENGTH } from '@/lib/machine-users'
 import MemberRow, { type Role } from './MemberRow'
 
 interface Props {
@@ -19,7 +21,14 @@ export default function MembersManager({
   initialInvitations,
   currentMembershipId,
 }: Props) {
+  const router = useRouter()
   const [members, setMembers] = useState(initialMembers)
+  // Take fresh members when the page data is refreshed (e.g. after adding a machine).
+  const [prevInitialMembers, setPrevInitialMembers] = useState(initialMembers)
+  if (initialMembers !== prevInitialMembers) {
+    setPrevInitialMembers(initialMembers)
+    setMembers(initialMembers)
+  }
   const [invitations, setInvitations] = useState(initialInvitations)
   const [capDrafts, setCapDrafts] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<string | null>(null)
@@ -27,6 +36,9 @@ export default function MembersManager({
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<Role>('member')
   const [inviting, setInviting] = useState(false)
+  const [machineName, setMachineName] = useState('')
+  const [machineDescription, setMachineDescription] = useState('')
+  const [addingMachine, setAddingMachine] = useState(false)
 
   async function updateMember(id: string, body: { role?: Role; daily_spend_limit_cents?: number }) {
     setError(null)
@@ -114,6 +126,35 @@ export default function MembersManager({
       setError('Network error — please try again')
     } finally {
       setInviting(false)
+    }
+  }
+
+  async function handleAddMachine(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setAddingMachine(true)
+    try {
+      const res = await fetch('/api/company/machine-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: machineName,
+          ...(machineDescription.trim() && { description: machineDescription.trim() }),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'Failed to add machine user')
+      } else {
+        // The API returns a Machine user, not a membership, so reload the members list.
+        setMachineName('')
+        setMachineDescription('')
+        router.refresh()
+      }
+    } catch {
+      setError('Network error — please try again')
+    } finally {
+      setAddingMachine(false)
     }
   }
 
@@ -238,6 +279,45 @@ export default function MembersManager({
           Machines
         </h2>
         {renderTable(machines, false, 'No machine users yet.')}
+        <h3 className="text-sm font-semibold text-gray-900">Add a machine</h3>
+        <form onSubmit={handleAddMachine} className="flex flex-wrap items-end gap-3">
+          <div>
+            <label htmlFor="machine-name" className="block text-sm font-medium text-gray-700">
+              Name
+            </label>
+            <input
+              id="machine-name"
+              type="text"
+              required
+              maxLength={MAX_MACHINE_NAME_LENGTH}
+              value={machineName}
+              onChange={(e) => setMachineName(e.target.value)}
+              className="mt-1 block w-64 rounded-md border-gray-300 shadow-xs text-sm"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="machine-description"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Description (optional)
+            </label>
+            <input
+              id="machine-description"
+              type="text"
+              value={machineDescription}
+              onChange={(e) => setMachineDescription(e.target.value)}
+              className="mt-1 block w-64 rounded-md border-gray-300 shadow-xs text-sm"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={addingMachine}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {addingMachine ? 'Adding…' : 'Add machine'}
+          </button>
+        </form>
       </section>
     </div>
   )

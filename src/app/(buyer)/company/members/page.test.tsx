@@ -5,6 +5,7 @@ vi.mock('next/navigation', () => ({
   redirect: vi.fn(() => {
     throw new Error('NEXT_REDIRECT')
   }),
+  useRouter: vi.fn(() => ({ refresh: vi.fn(), push: vi.fn() })),
 }))
 vi.mock('@/lib/auth', () => ({ requireAuth: vi.fn() }))
 vi.mock('@/lib/company', () => ({ getCompanyMembership: vi.fn() }))
