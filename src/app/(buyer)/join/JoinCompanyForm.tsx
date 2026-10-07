@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { CompanyMembership } from '@ledewire/node'
+import { companyLanding } from '@/lib/invitations'
 
 const TOKEN_PARAMS = ['token', 'invitation_token', 'company_invitation_token']
 
@@ -74,7 +75,7 @@ export default function JoinCompanyForm({ initialToken }: Props) {
           You joined {joined.company_name} as {joined.role === 'admin' ? 'an admin' : 'a member'}.
         </p>
         <a
-          href={joined.role === 'admin' ? '/company/members' : '/wallet'}
+          href={companyLanding(joined.role)}
           className="text-sm text-green-700 hover:text-green-900 underline"
         >
           {joined.role === 'admin' ? 'Manage members' : 'View the Company wallet'}

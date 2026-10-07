@@ -8,14 +8,17 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }))
 vi.mock('@/components/GoogleSignInButton', () => ({
   default: ({
     googleClientId,
+    invitationTokens,
     onError,
   }: {
     googleClientId: string
+    invitationTokens?: object
     onError: (m: string) => void
   }) => (
     <button
       data-testid="google-btn"
       data-client-id={googleClientId}
+      data-invitation-tokens={JSON.stringify(invitationTokens ?? {})}
       onClick={() => onError('Google sign-in failed')}
     >
       Sign in with Google
@@ -60,6 +63,48 @@ describe('LoginForm', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Invalid email or password'),
     )
     expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  describe('with invitation tokens', () => {
+    const tokens = { company_invitation_token: 'T k', invitation_token: 'S' }
+
+    async function signIn() {
+      fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.com' } })
+      await userEvent.type(screen.getByLabelText(/password/i), 'secret123')
+      await userEvent.click(screen.getByRole('button', { name: /^sign in$/i }))
+    }
+
+    it('takes a password sign-in to /join with the Company token prefilled', async () => {
+      mockFetch(200, { ok: true })
+      render(<LoginForm googleClientId={null} invitationTokens={tokens} />)
+      await signIn()
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/join?token=T+k'))
+      const init = vi.mocked(global.fetch).mock.calls[0][1] as RequestInit
+      expect(JSON.parse(init.body as string)).toEqual({ email: 'a@b.com', password: 'secret123' })
+    })
+
+    it('lands on the dashboard with only a store token', async () => {
+      mockFetch(200, { ok: true })
+      render(<LoginForm googleClientId={null} invitationTokens={{ invitation_token: 'S' }} />)
+      await signIn()
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'))
+    })
+
+    it('hands the tokens to the Google button', () => {
+      render(<LoginForm googleClientId="gid_123" invitationTokens={tokens} />)
+      expect(screen.getByTestId('google-btn')).toHaveAttribute(
+        'data-invitation-tokens',
+        JSON.stringify(tokens),
+      )
+    })
+
+    it('carries the tokens back onto the create-account link', () => {
+      render(<LoginForm googleClientId={null} invitationTokens={tokens} />)
+      expect(screen.getByRole('link', { name: /create an account/i })).toHaveAttribute(
+        'href',
+        '/signup?company_invitation_token=T+k&invitation_token=S',
+      )
+    })
   })
 
   it('shows links to signup and forgot-password', () => {

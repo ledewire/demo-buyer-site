@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mockSignup = vi.fn()
+const mockMembershipGet = vi.fn()
 
 vi.mock('@/lib/session', () => ({ getSession: vi.fn() }))
 vi.mock('@/lib/config', () => ({ config: { ledewireBaseUrl: 'https://api.ledewire.com' } }))
@@ -34,7 +35,10 @@ describe('POST /api/auth/signup', () => {
     vi.clearAllMocks()
     mockSession.accessToken = undefined
     vi.mocked(getSession).mockResolvedValue(mockSession as never)
-    vi.mocked(createClient).mockReturnValue({ auth: { signup: mockSignup } } as never)
+    vi.mocked(createClient).mockReturnValue({
+      auth: { signup: mockSignup },
+      company: { membership: { get: mockMembershipGet } },
+    } as never)
   })
 
   it('returns 400 for invalid JSON', async () => {
@@ -70,6 +74,77 @@ describe('POST /api/auth/signup', () => {
     const res = await POST(makeRequest({ name: 'Alice', email: 'a@b.com', password: 'secret123' }))
     expect(res.status).toBe(409)
     expect(await res.json()).toMatchObject({ error: 'Email already taken' })
+  })
+
+  describe('with invitation tokens', () => {
+    const fields = { name: 'Alice', email: 'a@b.com', password: 'secret123' }
+    const authRes = {
+      access_token: 'tok_a',
+      refresh_token: 'tok_r',
+      expires_at: '2026-12-31T00:00:00Z',
+    }
+
+    it('forwards company_invitation_token and invitation_token to signup', async () => {
+      mockSignup.mockResolvedValue(authRes)
+      mockMembershipGet.mockResolvedValue({ role: 'member' })
+      await POST(makeRequest({ ...fields, company_invitation_token: 'T', invitation_token: 'S' }))
+      expect(mockSignup).toHaveBeenCalledWith({
+        ...fields,
+        company_invitation_token: 'T',
+        invitation_token: 'S',
+      })
+    })
+
+    it('forwards a store invitation_token alone and lands on the dashboard', async () => {
+      mockSignup.mockResolvedValue(authRes)
+      const res = await POST(makeRequest({ ...fields, invitation_token: 'S' }))
+      expect(mockSignup).toHaveBeenCalledWith({ ...fields, invitation_token: 'S' })
+      expect(await res.json()).toEqual({ ok: true })
+      expect(mockMembershipGet).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['admin', '/company/members'],
+      ['member', '/wallet'],
+    ])('sends a new Company %s to %s', async (role, redirect) => {
+      mockSignup.mockResolvedValue(authRes)
+      mockMembershipGet.mockResolvedValue({ role })
+      const res = await POST(makeRequest({ ...fields, company_invitation_token: 'T' }))
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ ok: true, redirect })
+    })
+
+    it('still signs up, landing on the dashboard, when the membership lookup fails', async () => {
+      mockSignup.mockResolvedValue(authRes)
+      mockMembershipGet.mockRejectedValue(new LedewireError('Server error', 500))
+      const res = await POST(makeRequest({ ...fields, company_invitation_token: 'T' }))
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ ok: true })
+      expect(mockSession.accessToken).toBe('tok_a')
+    })
+
+    it.each([
+      ['expired', 'This invitation has expired. Ask your Company admin to send a new one.'],
+      [
+        'wrong_email',
+        'This invitation was sent to a different email address. Use the address it was sent to.',
+      ],
+      [
+        'already_in_company',
+        'You already belong to a Company. Leave it before accepting this invitation.',
+      ],
+    ])('returns 422 with a message for a refused invitation (%s)', async (reason, error) => {
+      mockSignup.mockRejectedValue(
+        new LedewireError('Invitation not accepted', 422, 422, 'invitation_not_accepted', {
+          reason,
+          invitation: 'company',
+        }),
+      )
+      const res = await POST(makeRequest({ ...fields, company_invitation_token: 'T' }))
+      expect(res.status).toBe(422)
+      expect(await res.json()).toEqual({ error, type: 'invitation_not_accepted', reason })
+      expect(mockSession.save).not.toHaveBeenCalled()
+    })
   })
 
   it('returns 500 on unexpected error', async () => {

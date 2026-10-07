@@ -79,8 +79,70 @@ describe('GoogleSignInButton', () => {
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'))
     expect(global.fetch).toHaveBeenCalledWith(
       '/api/auth/google',
-      expect.objectContaining({ method: 'POST' }),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ id_token: 'id_token_123' }),
+      }),
     )
+  })
+
+  it('sends the invitation tokens with the credential', async () => {
+    render(
+      <GoogleSignInButton
+        googleClientId="gid_test"
+        invitationTokens={{ company_invitation_token: 'T', invitation_token: 'S' }}
+        onError={onError}
+        onLoadingChange={onLoadingChange}
+      />,
+    )
+    simulateGoogleCredential('id_token_123')
+    await waitFor(() => expect(mockPush).toHaveBeenCalled())
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/auth/google',
+      expect.objectContaining({
+        body: JSON.stringify({
+          id_token: 'id_token_123',
+          company_invitation_token: 'T',
+          invitation_token: 'S',
+        }),
+      }),
+    )
+  })
+
+  it('goes where the API says after joining a Company', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ok: true, redirect: '/company/members' }),
+    } as Response)
+    render(
+      <GoogleSignInButton
+        googleClientId="gid_test"
+        invitationTokens={{ company_invitation_token: 'T' }}
+        onError={onError}
+        onLoadingChange={onLoadingChange}
+      />,
+    )
+    simulateGoogleCredential('id_token_123')
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/company/members'))
+  })
+
+  it('shows a refused invitation and stays put', async () => {
+    const error = 'This invitation has expired. Ask your Company admin to send a new one.'
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({ error, type: 'invitation_not_accepted', reason: 'expired' }),
+    } as Response)
+    render(
+      <GoogleSignInButton
+        googleClientId="gid_test"
+        invitationTokens={{ company_invitation_token: 'T' }}
+        onError={onError}
+        onLoadingChange={onLoadingChange}
+      />,
+    )
+    simulateGoogleCredential('id_token_123')
+    await waitFor(() => expect(onError).toHaveBeenCalledWith(error))
+    expect(mockPush).not.toHaveBeenCalled()
   })
 
   it('calls onError when the API returns an error', async () => {

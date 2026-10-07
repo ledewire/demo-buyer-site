@@ -4,12 +4,15 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import GoogleSignInButton from '@/components/GoogleSignInButton'
+import { withInvitationTokens, type InvitationTokens } from '@/lib/invitations'
 
 interface Props {
   googleClientId: string | null
+  /** Invitation tokens from the email link, accepted with the signup. */
+  invitationTokens?: InvitationTokens
 }
 
-export default function SignupForm({ googleClientId }: Props) {
+export default function SignupForm({ googleClientId, invitationTokens = {} }: Props) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -28,13 +31,13 @@ export default function SignupForm({ googleClientId }: Props) {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, ...invitationTokens }),
       })
       const data = await res.json()
       if (!res.ok) {
         setError(data.error ?? 'Signup failed')
       } else {
-        router.push('/dashboard')
+        router.push(data.redirect ?? '/dashboard')
       }
     } catch {
       setError('Network error — please try again')
@@ -112,13 +115,17 @@ export default function SignupForm({ googleClientId }: Props) {
         </form>
         <p className="text-center text-sm text-gray-600">
           Already have an account?{' '}
-          <Link href="/login" className="text-indigo-600 hover:text-indigo-500">
+          <Link
+            href={withInvitationTokens('/login', invitationTokens)}
+            className="text-indigo-600 hover:text-indigo-500"
+          >
             Sign in
           </Link>
         </p>
         {googleClientId && (
           <GoogleSignInButton
             googleClientId={googleClientId}
+            invitationTokens={invitationTokens}
             onError={handleGoogleError}
             onLoadingChange={handleGoogleLoading}
           />
