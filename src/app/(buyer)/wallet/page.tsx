@@ -8,7 +8,6 @@ import type { CompanyMembership } from '@ledewire/node'
 import { formatCents } from '@/lib/format'
 import { listItems } from '@/lib/list-items'
 import CompanyPurchasesTable from '../company/purchases/CompanyPurchasesTable'
-import PendingTopUps from './PendingTopUps'
 import TransactionList from './TransactionList'
 import WalletFund from './WalletFund'
 
@@ -17,7 +16,8 @@ export default async function WalletPage() {
 
   try {
     const membership = await getCompanyMembership()
-    return membership ? <CompanyWallet membership={membership} /> : <PersonalWallet />
+    // Awaited here, not rendered as async children, so their API errors reach this catch.
+    return membership ? await companyWallet(membership) : await personalWallet()
   } catch (err) {
     if (err instanceof AuthError) redirect('/login')
     if (err instanceof LedewireError) {
@@ -27,7 +27,7 @@ export default async function WalletPage() {
   }
 }
 
-async function PersonalWallet() {
+async function personalWallet() {
   const client = await createBuyerClient()
   const [balance, transactionList] = await Promise.all([
     client.wallet.balance(),
@@ -63,15 +63,14 @@ async function PersonalWallet() {
 /**
  * A Company member spends only from the Company wallet, so they see that
  * wallet alone — never a personal balance. The API exposes no Company balance,
- * so the page shows the viewer's cap headroom; admins also fund the wallet and
- * track top-ups until they settle.
+ * so the page shows the viewer's cap headroom. Admins fund the wallet and track
+ * top-ups on the Company Wallet page (/company/wallet).
  */
-async function CompanyWallet({ membership }: { membership: CompanyMembership }) {
+async function companyWallet(membership: CompanyMembership) {
   const client = await createBuyerClient()
   const isAdmin = membership.role === 'admin'
-  const [balance, topUps, recent] = await Promise.all([
+  const [balance, recent] = await Promise.all([
     client.wallet.balance(),
-    isAdmin ? client.company.wallet.listPendingTopUps() : null,
     isAdmin ? client.company.purchases.list({ per_page: 10 }) : null,
   ])
 
@@ -96,21 +95,16 @@ async function CompanyWallet({ membership }: { membership: CompanyMembership }) 
           </p>
         </div>
         {isAdmin ? (
-          <WalletFund target="company" />
+          <Link
+            href="/company/wallet"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+          >
+            Add funds
+          </Link>
         ) : (
           <p className="text-sm text-gray-500">Only Company admins can add funds.</p>
         )}
       </div>
-      {topUps && (
-        <div>
-          <h2 className="text-lg font-semibold text-gray-800">Pending top-ups</h2>
-          <p className="mt-1 mb-4 text-sm text-gray-500">
-            Funds become spendable once a top-up settles — usually at once for a card, about four
-            business days for a bank transfer.
-          </p>
-          <PendingTopUps topUps={topUps.data} />
-        </div>
-      )}
       {recent && (
         <div>
           <div className="flex items-baseline justify-between mb-4">
