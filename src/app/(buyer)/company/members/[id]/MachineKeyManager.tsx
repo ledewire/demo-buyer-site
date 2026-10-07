@@ -7,6 +7,8 @@ import { formatDate } from '@/lib/format'
 export interface MachineKey {
   id: string
   name: string
+  /** The public key id an agent presents with its secret. */
+  key: string
   created_at: string
   last_used_at: string | null
 }
@@ -22,7 +24,8 @@ interface Props {
 /** Lists, issues and revokes a Machine user's keys of one kind. */
 export default function MachineKeyManager({ title, apiPath, initialKeys }: Props) {
   const [keys, setKeys] = useState(initialKeys)
-  const [secret, setSecret] = useState<string | null>(null)
+  // The new key's one-time secret, with the key id an agent presents alongside it.
+  const [issued, setIssued] = useState<{ key: string; secret: string } | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [issuing, setIssuing] = useState(false)
@@ -46,9 +49,9 @@ export default function MachineKeyManager({ title, apiPath, initialKeys }: Props
         setError(data.error ?? 'Failed to issue key')
         return
       }
-      const { id, name: keyName, created_at, last_used_at, secret: newSecret } = data
-      setKeys((prev) => [...prev, { id, name: keyName, created_at, last_used_at }])
-      setSecret(newSecret)
+      const { id, name: keyName, key, created_at, last_used_at, secret } = data
+      setKeys((prev) => [...prev, { id, name: keyName, key, created_at, last_used_at }])
+      setIssued({ key, secret })
       setShowForm(false)
       setName('')
     } catch {
@@ -89,7 +92,7 @@ export default function MachineKeyManager({ title, apiPath, initialKeys }: Props
           {error}
         </p>
       )}
-      {secret && (
+      {issued && (
         <section
           aria-labelledby={secretHeadingId}
           className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3"
@@ -100,12 +103,21 @@ export default function MachineKeyManager({ title, apiPath, initialKeys }: Props
           <p className="text-sm font-medium text-amber-800">
             Copy this secret now. It won&apos;t be shown again.
           </p>
-          <p className="text-sm font-mono select-all font-bold text-amber-900 break-all">
-            {secret}
-          </p>
+          <dl className="space-y-2 text-sm font-mono">
+            <div>
+              <dt className="inline text-gray-500">Key: </dt>
+              <dd className="inline select-all">{issued.key}</dd>
+            </div>
+            <div>
+              <dt className="inline text-gray-500">Secret: </dt>
+              <dd className="inline select-all font-bold text-amber-900 break-all">
+                {issued.secret}
+              </dd>
+            </div>
+          </dl>
           <button
             type="button"
-            onClick={() => setSecret(null)}
+            onClick={() => setIssued(null)}
             className="text-sm text-amber-700 hover:text-amber-900 underline"
           >
             I&apos;ve saved the secret
@@ -171,6 +183,9 @@ export default function MachineKeyManager({ title, apiPath, initialKeys }: Props
                   Name
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Key
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Created
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -185,6 +200,7 @@ export default function MachineKeyManager({ title, apiPath, initialKeys }: Props
               {keys.map((k) => (
                 <tr key={k.id}>
                   <td className="px-4 py-3 text-sm text-gray-800">{k.name}</td>
+                  <td className="px-4 py-3 text-sm font-mono text-gray-600">{k.key}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">{formatDate(k.created_at)}</td>
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {k.last_used_at ? formatDate(k.last_used_at) : 'Never'}

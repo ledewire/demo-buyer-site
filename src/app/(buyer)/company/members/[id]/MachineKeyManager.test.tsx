@@ -9,6 +9,7 @@ function makeKey(overrides: Partial<MachineKey> = {}): MachineKey {
   return {
     id: 'bk-1',
     name: 'production',
+    key: 'bktst_abc',
     created_at: '2026-03-01T12:00:00Z',
     last_used_at: null,
     ...overrides,
@@ -41,7 +42,7 @@ describe('MachineKeyManager', () => {
     vi.restoreAllMocks()
   })
 
-  it('lists each key with its name, created date and last-used date', () => {
+  it('lists each key with its name, key id, created date and last-used date', () => {
     renderManager([
       makeKey(),
       makeKey({ id: 'bk-2', name: 'staging', last_used_at: '2026-04-02T12:00:00Z' }),
@@ -49,6 +50,7 @@ describe('MachineKeyManager', () => {
     const table = screen.getByRole('table', { name: 'Buyer keys' })
     const [, production, staging] = within(table).getAllByRole('row')
     expect(within(production).getByText('production')).toBeInTheDocument()
+    expect(within(production).getByText('bktst_abc')).toBeInTheDocument()
     expect(
       within(production).getByText(new Date('2026-03-01T12:00:00Z').toLocaleDateString()),
     ).toBeInTheDocument()
@@ -79,6 +81,8 @@ describe('MachineKeyManager', () => {
     })
     const panel = await screen.findByRole('region', { name: 'New key secret' })
     expect(within(panel).getByText('f00dcafe')).toBeInTheDocument()
+    // The agent logs in with key and secret together; the secret alone is useless.
+    expect(within(panel).getByText('bktst_new')).toBeInTheDocument()
     expect(within(panel).getByText(/won.t be shown again/i)).toBeInTheDocument()
 
     await userEvent.click(within(panel).getByRole('button', { name: "I've saved the secret" }))
