@@ -141,7 +141,7 @@ describe('CompanyMachinesPage', () => {
       within(tabs)
         .getAllByRole('link')
         .map((l) => l.textContent),
-    ).toEqual(['People', 'Machines', 'Purchases'])
+    ).toEqual(['People', 'Machines', 'Purchases', 'Wallet'])
     const machines = within(tabs).getByRole('link', { name: 'Machines' })
     expect(machines).toHaveAttribute('href', '/company/machines')
     expect(machines).toHaveAttribute('aria-current', 'page')
