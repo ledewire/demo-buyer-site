@@ -62,7 +62,7 @@ describe('POST /api/company/machine-users/:id/buyer-keys', () => {
     expect(mockCreate).not.toHaveBeenCalled()
   })
 
-  it("issues a key for the machine user and returns its secret once, uncached", async () => {
+  it('issues a key for the machine user and returns its secret once, uncached', async () => {
     const created = { id: 'bk-1', name: 'production', key: 'bktst_abc', secret: 'f00d' }
     mockCreate.mockResolvedValue(created)
     const res = await post({ name: '  production  ' })

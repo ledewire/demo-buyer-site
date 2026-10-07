@@ -16,7 +16,9 @@ function makeKey(overrides: Partial<MachineKey> = {}): MachineKey {
 }
 
 function renderManager(initialKeys: MachineKey[] = []) {
-  return render(<MachineKeyManager title="Buyer keys" apiPath={API_PATH} initialKeys={initialKeys} />)
+  return render(
+    <MachineKeyManager title="Buyer keys" apiPath={API_PATH} initialKeys={initialKeys} />,
+  )
 }
 
 function mockFetch(status: number, body: object) {
