@@ -77,17 +77,28 @@ describe('CompanyMembersPage', () => {
         },
       ],
     } as never)
-    mockCompany.purchases.list.mockResolvedValue({
-      data: [],
-      pagination: {
-        current_page: 1,
-        per_page: 1,
-        total: 7,
-        total_pages: 7,
-        next_page: 2,
-        prev_page: null,
-      },
-    } as never)
+    // A distinct purchase count per window, told apart by its length in days.
+    const purchasesByDays: Record<number, number> = { 0: 2, 6: 9, 29: 41 }
+    mockCompany.purchases.list.mockImplementation((async ({
+      from,
+      to,
+    }: {
+      from: string
+      to: string
+    }) => {
+      const total = purchasesByDays[(Date.parse(to) - Date.parse(from)) / 86_400_000]
+      return {
+        data: [],
+        pagination: {
+          current_page: 1,
+          per_page: 1,
+          total,
+          total_pages: total,
+          next_page: null,
+          prev_page: null,
+        },
+      }
+    }) as never)
   })
 
   it('points a buyer in no Company to joining one', async () => {
@@ -142,10 +153,14 @@ describe('CompanyMembersPage', () => {
 
   it("shows an admin the Company's activity snapshot", async () => {
     await renderPage()
-    for (const name of ['Today', 'Last 7 days', 'Last 30 days']) {
-      const window = screen.getByRole('group', { name })
-      expect(within(window).getByText('$3.20')).toBeInTheDocument()
-      expect(within(window).getByText('7 purchases')).toBeInTheDocument()
+    for (const [name, purchases] of [
+      ['Today', '2 purchases'],
+      ['Last 7 days', '9 purchases'],
+      ['Last 30 days', '41 purchases'],
+    ]) {
+      const group = screen.getByRole('group', { name })
+      expect(within(group).getByText('$3.20')).toBeInTheDocument()
+      expect(within(group).getByText(purchases)).toBeInTheDocument()
     }
     expect(
       screen.getByText('Spend counts captured amounts only, not live bulk holds.'),

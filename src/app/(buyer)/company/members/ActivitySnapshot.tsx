@@ -1,9 +1,10 @@
+import { useId } from 'react'
 import Link from 'next/link'
 import type { CompanyTotals, WindowTotals } from '@/lib/company-activity'
 import { formatCents } from '@/lib/format'
 
-function Window({ label, totals }: { label: string; totals: WindowTotals }) {
-  const id = `activity-${label.toLowerCase().replace(/\s+/g, '-')}`
+function WindowTile({ label, totals }: { label: string; totals: WindowTotals }) {
+  const id = useId()
   return (
     <div role="group" aria-labelledby={id} className="px-4 py-3">
       <p id={id} className="text-xs font-medium text-gray-500">
@@ -22,9 +23,9 @@ export default function ActivitySnapshot({ totals }: { totals: CompanyTotals }) 
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-1 sm:grid-cols-3 bg-white border border-gray-200 rounded-lg divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-        <Window label="Today" totals={totals.today} />
-        <Window label="Last 7 days" totals={totals.last7} />
-        <Window label="Last 30 days" totals={totals.last30} />
+        <WindowTile label="Today" totals={totals.today} />
+        <WindowTile label="Last 7 days" totals={totals.last7} />
+        <WindowTile label="Last 30 days" totals={totals.last30} />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <p className="text-gray-500">Spend counts captured amounts only, not live bulk holds.</p>

@@ -66,11 +66,7 @@ export interface WindowTotals {
 }
 
 /** The Company's totals for each activity window. */
-export interface CompanyTotals {
-  today: WindowTotals
-  last7: WindowTotals
-  last30: WindowTotals
-}
+export type CompanyTotals = Record<keyof ActivityWindows, WindowTotals>
 
 /** A window's totals: its spend rows summed, its purchase count from the listing's total. */
 function windowTotals(spend: CompanySpendList, purchases: CompanyPurchaseList): WindowTotals {
@@ -102,29 +98,29 @@ export async function getCompanyActivity(
   const client = await createBuyerClient()
   const { spend_window_timezone } = await client.user.spendCap.get()
   const windows = activityWindows(spend_window_timezone, now)
-  const purchasesIn = (window: DayWindow) =>
-    client.company.purchases.list({ ...window, per_page: 1 })
-  const [spendToday, spend7, spend30, purchasesToday, purchases7, purchases30] = await Promise.all([
-    client.company.spend.list(windows.today),
-    client.company.spend.list(windows.last7),
-    client.company.spend.list(windows.last30),
-    purchasesIn(windows.today),
-    purchasesIn(windows.last7),
-    purchasesIn(windows.last30),
+  const fetchWindow = (window: DayWindow) =>
+    Promise.all([
+      client.company.spend.list(window),
+      client.company.purchases.list({ ...window, per_page: 1 }),
+    ])
+  const [todayLists, last7Lists, last30Lists] = await Promise.all([
+    fetchWindow(windows.today),
+    fetchWindow(windows.last7),
+    fetchWindow(windows.last30),
   ])
-  const today = spendById(spendToday)
-  const last30 = spendById(spend30)
+  const todayById = spendById(todayLists[0])
+  const last30ById = spendById(last30Lists[0])
   return {
     members: Object.fromEntries(
       memberIds.map((id) => [
         id,
-        { todayCents: today.get(id) ?? 0, last30Cents: last30.get(id) ?? 0 },
+        { todayCents: todayById.get(id) ?? 0, last30Cents: last30ById.get(id) ?? 0 },
       ]),
     ),
     totals: {
-      today: windowTotals(spendToday, purchasesToday),
-      last7: windowTotals(spend7, purchases7),
-      last30: windowTotals(spend30, purchases30),
+      today: windowTotals(...todayLists),
+      last7: windowTotals(...last7Lists),
+      last30: windowTotals(...last30Lists),
     },
   }
 }
