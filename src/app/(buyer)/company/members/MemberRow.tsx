@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import type { CompanyMember } from '@ledewire/node'
 import type { MemberActivity } from '@/lib/company-activity'
 import { formatCents, formatDate } from '@/lib/format'
@@ -40,7 +41,12 @@ export default function MemberRow({
   return (
     <tr>
       <td className="px-4 py-3 text-sm text-gray-800">
-        {m.name}
+        <Link
+          href={`/company/members/${encodeURIComponent(m.id)}`}
+          className="text-indigo-600 hover:text-indigo-800"
+        >
+          {m.name}
+        </Link>
         {isCurrent && <span className="ml-1 text-xs text-gray-400">(you)</span>}
       </td>
       <td className="px-4 py-3 text-sm text-gray-600">
