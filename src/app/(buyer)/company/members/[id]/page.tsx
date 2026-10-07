@@ -6,14 +6,31 @@ import { createBuyerClient } from '@/lib/ledewire'
 import { getCompanyMembership } from '@/lib/company'
 import { getMemberSpend } from '@/lib/company-activity'
 import { formatCents } from '@/lib/format'
-import { AuthError, LedewireError } from '@ledewire/node'
+import { AuthError, LedewireError, type CompanyMember } from '@ledewire/node'
 import NotInCompany from '../../NotInCompany'
 import CompanyPurchasesTable from '../../purchases/CompanyPurchasesTable'
 import Pagination from '../../purchases/Pagination'
 import { parseFilters, type SearchParams } from '../../purchases/filters'
+import MachineKeyManager from './MachineKeyManager'
 import MemberCapEditor from './MemberCapEditor'
 
 const PER_PAGE = 25
+
+type BuyerClient = Awaited<ReturnType<typeof createBuyerClient>>
+
+/**
+ * A machine member's Buyer keys, with the Machine user id their routes take, or null for a
+ * human member or one no Machine user matches. The membership names the Machine user's
+ * Buyer by `user_id`.
+ */
+async function getBuyerKeys(client: BuyerClient, member: CompanyMember) {
+  if (member.kind !== 'machine') return null
+  const machineUsers = await client.company.machineUsers.list()
+  const machineUser = machineUsers.data.find((m) => m.user_id === member.user_id)
+  if (!machineUser) return null
+  const keys = await client.company.machineUsers.buyerKeys.list(machineUser.id)
+  return { machineUserId: machineUser.id, keys: keys.data }
+}
 
 function SpendTile({ label, cents }: { label: string; cents: number }) {
   const id = useId()
@@ -62,9 +79,10 @@ export default async function MemberDetailPage({
       )
     }
 
-    const [activity, purchases] = await Promise.all([
+    const [activity, purchases, buyerKeys] = await Promise.all([
       getMemberSpend(member.id),
       client.company.purchases.list({ member: member.id, page, per_page: PER_PAGE }),
+      getBuyerKeys(client, member),
     ])
     const pastLastPage = purchases.data.length === 0 && purchases.pagination.total > 0
 
@@ -107,6 +125,14 @@ export default async function MemberDetailPage({
             Spend counts captured amounts only, not live bulk holds.
           </p>
         </div>
+
+        {buyerKeys && (
+          <MachineKeyManager
+            title="Buyer keys"
+            apiPath={`/api/company/machine-users/${encodeURIComponent(buyerKeys.machineUserId)}/buyer-keys`}
+            initialKeys={buyerKeys.keys}
+          />
+        )}
 
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">

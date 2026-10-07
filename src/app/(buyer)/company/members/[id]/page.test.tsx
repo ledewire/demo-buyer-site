@@ -86,6 +86,24 @@ describe('MemberDetailPage', () => {
       data: [{ member: purchase.member, spend_cents: 320 }],
     } as never)
     mockCompany.purchases.list.mockResolvedValue(purchasePage(1, 1) as never)
+    mockCompany.machineUsers.list.mockResolvedValue({
+      data: [
+        { id: 'mu-other', user_id: 'user-9', name: 'other-agent' },
+        { id: 'mu-2', user_id: 'user-2', name: 'research-agent' },
+      ],
+    } as never)
+    mockCompany.machineUsers.buyerKeys.list.mockResolvedValue({
+      data: [
+        {
+          id: 'bk-1',
+          name: 'production',
+          key: 'bktst_abc',
+          created_by_user_id: 'user-1',
+          created_at: '2026-03-01T12:00:00Z',
+          last_used_at: null,
+        },
+      ],
+    } as never)
   })
 
   it('points a buyer in no Company to joining one', async () => {
@@ -206,5 +224,33 @@ describe('MemberDetailPage', () => {
       'href',
       '/company/purchases?member=mem-2',
     )
+  })
+
+  it("shows a machine member's Buyer keys, read by its Machine user id", async () => {
+    await renderPage()
+    expect(mockCompany.machineUsers.buyerKeys.list).toHaveBeenCalledWith('mu-2')
+    expect(screen.getByRole('heading', { name: 'Buyer keys' })).toBeInTheDocument()
+    const table = screen.getByRole('table', { name: 'Buyer keys' })
+    expect(within(table).getByText('production')).toBeInTheDocument()
+    expect(within(table).getByText('Never')).toBeInTheDocument()
+  })
+
+  it('shows no Buyer key section for a human member', async () => {
+    mockCompany.members.list.mockResolvedValue({
+      data: [{ ...agent, kind: 'human', name: 'Ada', email: 'ada@example.com' }],
+    } as never)
+    await renderPage()
+    expect(screen.getByRole('heading', { name: 'Ada' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Buyer keys' })).not.toBeInTheDocument()
+    expect(mockCompany.machineUsers.list).not.toHaveBeenCalled()
+    expect(mockCompany.machineUsers.buyerKeys.list).not.toHaveBeenCalled()
+  })
+
+  it('shows no Buyer key section when no Machine user matches the member', async () => {
+    mockCompany.machineUsers.list.mockResolvedValue({ data: [] } as never)
+    await renderPage()
+    expect(screen.getByRole('heading', { name: 'research-agent' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Buyer keys' })).not.toBeInTheDocument()
+    expect(mockCompany.machineUsers.buyerKeys.list).not.toHaveBeenCalled()
   })
 })
