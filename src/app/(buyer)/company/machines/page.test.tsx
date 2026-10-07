@@ -66,17 +66,6 @@ describe('CompanyMachinesPage', () => {
     mockCompany.members.list.mockResolvedValue({ data: [makeMember(), researchAgent] } as never)
     mockUserSpendCap.get.mockResolvedValue({ spend_window_timezone: 'UTC' } as never)
     mockCompany.spend.list.mockResolvedValue({ data: [] } as never)
-    mockCompany.purchases.list.mockResolvedValue({
-      data: [],
-      pagination: {
-        current_page: 1,
-        per_page: 1,
-        total: 0,
-        total_pages: 0,
-        next_page: null,
-        prev_page: null,
-      },
-    } as never)
   })
 
   it('points a buyer in no Company to joining one', async () => {

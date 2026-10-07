@@ -3,10 +3,12 @@ import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { getCompanyMembership } from '@/lib/company'
+import { getCompanyTotals } from '@/lib/company-activity'
 import { formatCents } from '@/lib/format'
 import { AuthError, LedewireError } from '@ledewire/node'
 import CompanyTabs from '../CompanyTabs'
 import NotInCompany from '../NotInCompany'
+import ActivitySnapshot from './ActivitySnapshot'
 import CompanyPurchasesTable from './CompanyPurchasesTable'
 import Pagination from './Pagination'
 import { parseFilters, type Filters, type SearchParams } from './filters'
@@ -42,10 +44,12 @@ export default async function CompanyPurchasesPage({
 
     const client = await createBuyerClient()
     const spendFilters = { member: filters.member, from: filters.from, to: filters.to }
-    const [purchases, spend, members] = await Promise.all([
+    const [purchases, spend, members, totals] = await Promise.all([
       client.company.purchases.list({ ...filters, page, per_page: PER_PAGE }),
       client.company.spend.list(spendFilters),
       client.company.members.list(),
+      // Company-wide: the URL's filters narrow the report below, not the snapshot.
+      getCompanyTotals(),
     ])
 
     return (
@@ -58,6 +62,8 @@ export default async function CompanyPurchasesPage({
             timezone.
           </p>
         </div>
+
+        <ActivitySnapshot totals={totals} />
 
         <form method="get" className="flex flex-wrap items-end gap-3">
           <div>
