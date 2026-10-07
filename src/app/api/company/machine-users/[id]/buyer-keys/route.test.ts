@@ -10,7 +10,7 @@ vi.mock('@ledewire/node', async (importOriginal) => {
 })
 
 import { POST } from './route'
-import { LedewireError, NotFoundError } from '@ledewire/node'
+import { AuthError, LedewireError, NotFoundError } from '@ledewire/node'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 
@@ -80,6 +80,12 @@ describe('POST /api/company/machine-users/:id/buyer-keys', () => {
     const res = await post({ name: 'production' })
     expect(res.status).toBe(status)
     expect((await res.json()).error).toBe('refused')
+  })
+
+  it('returns 401 when the API rejects the session', async () => {
+    mockCreate.mockRejectedValue(new AuthError('expired'))
+    const res = await post({ name: 'production' })
+    expect(res.status).toBe(401)
   })
 
   it('returns 404 when the machine user is not in the Company', async () => {

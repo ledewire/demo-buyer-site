@@ -23,7 +23,7 @@ type BuyerClient = Awaited<ReturnType<typeof createBuyerClient>>
  * human member or one no Machine user matches. The membership names the Machine user's
  * Buyer by `user_id`.
  */
-async function getBuyerKeys(client: BuyerClient, member: CompanyMember) {
+async function findMachineBuyerKeys(client: BuyerClient, member: CompanyMember) {
   if (member.kind !== 'machine') return null
   const machineUsers = await client.company.machineUsers.list()
   const machineUser = machineUsers.data.find((m) => m.user_id === member.user_id)
@@ -82,7 +82,7 @@ export default async function MemberDetailPage({
     const [activity, purchases, buyerKeys] = await Promise.all([
       getMemberSpend(member.id),
       client.company.purchases.list({ member: member.id, page, per_page: PER_PAGE }),
-      getBuyerKeys(client, member),
+      findMachineBuyerKeys(client, member),
     ])
     const pastLastPage = purchases.data.length === 0 && purchases.pagination.total > 0
 
