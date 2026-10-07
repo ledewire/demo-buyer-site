@@ -284,15 +284,34 @@ describe('MemberDetailPage', () => {
     expect(mockCompany.machineUsers.mcpKeys.list).not.toHaveBeenCalled()
   })
 
-  it('shows an admin the Company tabs with People current', async () => {
+  it('files a machine member under the Machines tab, and links back to Machines', async () => {
+    await renderPage()
+    const tabs = screen.getByRole('navigation', { name: 'Company' })
+    expect(within(tabs).getByRole('link', { name: 'Machines' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(within(tabs).getByRole('link', { name: 'People' })).not.toHaveAttribute('aria-current')
+    expect(screen.getByRole('link', { name: '← Machines' })).toHaveAttribute(
+      'href',
+      '/company/machines',
+    )
+  })
+
+  it('files a human member under the People tab, and links back to Members', async () => {
+    mockCompany.members.list.mockResolvedValue({
+      data: [{ ...agent, kind: 'human', email: 'ada@example.com', name: 'Ada' }],
+    } as never)
     await renderPage()
     const tabs = screen.getByRole('navigation', { name: 'Company' })
     expect(within(tabs).getByRole('link', { name: 'People' })).toHaveAttribute(
       'aria-current',
       'page',
     )
-    expect(within(tabs).getByRole('link', { name: 'Purchases' })).not.toHaveAttribute(
-      'aria-current',
+    expect(within(tabs).getByRole('link', { name: 'Machines' })).not.toHaveAttribute('aria-current')
+    expect(screen.getByRole('link', { name: '← Members' })).toHaveAttribute(
+      'href',
+      '/company/members',
     )
   })
 
