@@ -5,7 +5,9 @@ import { createBuyerClient } from '@/lib/ledewire'
 import { getCompanyMembership } from '@/lib/company'
 import { formatCents } from '@/lib/format'
 import { AuthError, LedewireError } from '@ledewire/node'
+import NotInCompany from '../NotInCompany'
 import CompanyPurchasesTable from './CompanyPurchasesTable'
+import Pagination from './Pagination'
 import { parseFilters, type Filters, type SearchParams } from './filters'
 
 const PER_PAGE = 25
@@ -29,14 +31,7 @@ export default async function CompanyPurchasesPage({
   try {
     const membership = await getCompanyMembership()
     if (!membership) {
-      return (
-        <p className="text-sm text-gray-500">
-          You&apos;re not part of a Company. Have an invitation?{' '}
-          <Link href="/join" className="text-indigo-600 hover:text-indigo-800">
-            Join a Company
-          </Link>
-        </p>
-      )
+      return <NotInCompany />
     }
     if (membership.role !== 'admin') {
       return (
@@ -51,7 +46,6 @@ export default async function CompanyPurchasesPage({
       client.company.spend.list(spendFilters),
       client.company.members.list(),
     ])
-    const { pagination } = purchases
 
     return (
       <div className="space-y-8">
@@ -121,32 +115,7 @@ export default async function CompanyPurchasesPage({
 
         <div className="space-y-3">
           <CompanyPurchasesTable purchases={purchases.data} />
-          {pagination.total_pages > 1 && (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">
-                Page {pagination.current_page} of {pagination.total_pages} · {pagination.total}{' '}
-                total
-              </span>
-              <div className="space-x-4">
-                {pagination.prev_page && (
-                  <Link
-                    href={pageHref(filters, pagination.prev_page)}
-                    className="text-indigo-600 hover:text-indigo-800"
-                  >
-                    ← Previous
-                  </Link>
-                )}
-                {pagination.next_page && (
-                  <Link
-                    href={pageHref(filters, pagination.next_page)}
-                    className="text-indigo-600 hover:text-indigo-800"
-                  >
-                    Next →
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
+          <Pagination pagination={purchases.pagination} hrefFor={(n) => pageHref(filters, n)} />
         </div>
 
         <div className="space-y-3">

@@ -120,6 +120,26 @@ describe('MembersManager', () => {
     expect(within(people).queryByRole('table')).not.toBeInTheDocument()
   })
 
+  it("links each person's and machine's name to their detail page by membership id", () => {
+    const agent = makeMember({
+      id: 'mem/3',
+      user_id: 'user-3',
+      kind: 'machine',
+      email: null,
+      name: 'research-agent',
+      role: 'member',
+    })
+    renderManager([makeMember(), agent])
+    expect(screen.getByRole('link', { name: 'Ada Admin' })).toHaveAttribute(
+      'href',
+      '/company/members/mem-1',
+    )
+    expect(screen.getByRole('link', { name: 'research-agent' })).toHaveAttribute(
+      'href',
+      '/company/members/mem%2F3',
+    )
+  })
+
   it('labels machine users', () => {
     renderManager([makeMember({ kind: 'machine', email: null, name: 'research-agent' })])
     expect(screen.getByText('Machine user')).toBeInTheDocument()

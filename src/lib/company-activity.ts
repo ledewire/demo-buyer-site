@@ -124,3 +124,34 @@ export async function getCompanyActivity(
     },
   }
 }
+
+/** One member's spend of the Company's money over each activity window, in cents. */
+export interface MemberSpend {
+  todayCents: number
+  last7Cents: number
+  last30Cents: number
+}
+
+/**
+ * One member's spend today, over 7 days and over 30 days, in the Company's
+ * days: one `company.spend.list` per window, filtered to `membershipId`. A
+ * member with no spend in a window reads as 0.
+ */
+export async function getMemberSpend(
+  membershipId: string,
+  now: Date = new Date(),
+): Promise<MemberSpend> {
+  const client = await createBuyerClient()
+  const { spend_window_timezone } = await client.user.spendCap.get()
+  const windows = activityWindows(spend_window_timezone, now)
+  const spendIn = async (window: DayWindow) => {
+    const list = await client.company.spend.list({ member: membershipId, ...window })
+    return spendById(list).get(membershipId) ?? 0
+  }
+  const [todayCents, last7Cents, last30Cents] = await Promise.all([
+    spendIn(windows.today),
+    spendIn(windows.last7),
+    spendIn(windows.last30),
+  ])
+  return { todayCents, last7Cents, last30Cents }
+}
