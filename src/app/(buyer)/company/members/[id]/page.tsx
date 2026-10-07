@@ -7,6 +7,7 @@ import { getCompanyMembership } from '@/lib/company'
 import { getMemberSpend } from '@/lib/company-activity'
 import { formatCents } from '@/lib/format'
 import { AuthError, LedewireError, type CompanyMember } from '@ledewire/node'
+import CompanyTabs from '../../CompanyTabs'
 import NotInCompany from '../../NotInCompany'
 import CompanyPurchasesTable from '../../purchases/CompanyPurchasesTable'
 import Pagination from '../../purchases/Pagination'
@@ -93,6 +94,7 @@ export default async function MemberDetailPage({
 
     return (
       <div className="space-y-8">
+        <CompanyTabs current="people" />
         <div>
           <Link href="/company/members" className="text-sm text-indigo-600 hover:text-indigo-800">
             ← Members

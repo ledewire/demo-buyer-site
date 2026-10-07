@@ -283,4 +283,22 @@ describe('MemberDetailPage', () => {
     expect(mockCompany.machineUsers.buyerKeys.list).not.toHaveBeenCalled()
     expect(mockCompany.machineUsers.mcpKeys.list).not.toHaveBeenCalled()
   })
+
+  it('shows an admin the Company tabs with People current', async () => {
+    await renderPage()
+    const tabs = screen.getByRole('navigation', { name: 'Company' })
+    expect(within(tabs).getByRole('link', { name: 'People' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    expect(within(tabs).getByRole('link', { name: 'Purchases' })).not.toHaveAttribute(
+      'aria-current',
+    )
+  })
+
+  it('does not show the Company tabs to a non-admin', async () => {
+    vi.mocked(getCompanyMembership).mockResolvedValue({ ...adminMembership, role: 'member' })
+    await renderPage()
+    expect(screen.queryByRole('navigation', { name: 'Company' })).not.toBeInTheDocument()
+  })
 })
