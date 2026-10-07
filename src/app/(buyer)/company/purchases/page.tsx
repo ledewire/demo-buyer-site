@@ -5,6 +5,7 @@ import { createBuyerClient } from '@/lib/ledewire'
 import { getCompanyMembership } from '@/lib/company'
 import { formatCents } from '@/lib/format'
 import { AuthError, LedewireError } from '@ledewire/node'
+import CompanyTabs from '../CompanyTabs'
 import NotInCompany from '../NotInCompany'
 import CompanyPurchasesTable from './CompanyPurchasesTable'
 import Pagination from './Pagination'
@@ -49,6 +50,7 @@ export default async function CompanyPurchasesPage({
 
     return (
       <div className="space-y-8">
+        <CompanyTabs current="purchases" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Company Purchases</h1>
           <p className="mt-1 text-sm text-gray-500">

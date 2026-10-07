@@ -7,6 +7,7 @@ import { getCompanyMembership } from '@/lib/company'
 import { getMemberSpend } from '@/lib/company-activity'
 import { formatCents } from '@/lib/format'
 import { AuthError, LedewireError, type CompanyMember } from '@ledewire/node'
+import CompanyTabs from '../../CompanyTabs'
 import NotInCompany from '../../NotInCompany'
 import CompanyPurchasesTable from '../../purchases/CompanyPurchasesTable'
 import Pagination from '../../purchases/Pagination'
@@ -73,12 +74,15 @@ export default async function MemberDetailPage({
     const member = members.data.find((m) => m.id === id)
     if (!member) {
       return (
-        <p className="text-sm text-gray-500">
-          No open membership matches this member.{' '}
-          <Link href="/company/members" className="text-indigo-600 hover:text-indigo-800">
-            Back to Members
-          </Link>
-        </p>
+        <div className="space-y-8">
+          <CompanyTabs current="people" />
+          <p className="text-sm text-gray-500">
+            No open membership matches this member.{' '}
+            <Link href="/company/members" className="text-indigo-600 hover:text-indigo-800">
+              Back to Members
+            </Link>
+          </p>
+        </div>
       )
     }
 
@@ -93,6 +97,7 @@ export default async function MemberDetailPage({
 
     return (
       <div className="space-y-8">
+        <CompanyTabs current="people" />
         <div>
           <Link href="/company/members" className="text-sm text-indigo-600 hover:text-indigo-800">
             ← Members

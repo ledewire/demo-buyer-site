@@ -10,18 +10,16 @@ const navLinks = [
   { href: '/api-keys', label: 'API Keys' },
 ]
 
-const companyAdminLinks = [
-  { href: '/company/members', label: 'Members' },
-  { href: '/company/purchases', label: 'Company Purchases' },
-]
+// The Company pages share a tab bar of their own; the nav only needs a way in.
+const companyAdminLink = { href: '/company/members', label: 'Company' }
 
 interface Props {
-  /** Shows the Company admin links when true. */
+  /** Shows the Company link when true. */
   isCompanyAdmin?: boolean
 }
 
 export default function NavBar({ isCompanyAdmin = false }: Props) {
-  const links = isCompanyAdmin ? [...navLinks, ...companyAdminLinks] : navLinks
+  const links = isCompanyAdmin ? [...navLinks, companyAdminLink] : navLinks
   return (
     <nav className="bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

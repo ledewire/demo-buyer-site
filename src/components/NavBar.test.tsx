@@ -19,22 +19,21 @@ describe('NavBar', () => {
     expect(screen.getByRole('link', { name: 'Exports' })).toBeInTheDocument()
   })
 
-  it('hides Company admin links by default', () => {
+  it('hides the Company link by default', () => {
     render(<NavBar />)
+    expect(screen.queryByRole('link', { name: 'Company' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Members' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Company Purchases' })).not.toBeInTheDocument()
   })
 
-  it('shows Company admin links for an admin', () => {
+  it('shows an admin a single Company link to the People tab', () => {
     render(<NavBar isCompanyAdmin />)
-    expect(screen.getByRole('link', { name: 'Members' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Company' })).toHaveAttribute(
       'href',
       '/company/members',
     )
-    expect(screen.getByRole('link', { name: 'Company Purchases' })).toHaveAttribute(
-      'href',
-      '/company/purchases',
-    )
+    expect(screen.queryByRole('link', { name: 'Members' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Company Purchases' })).not.toBeInTheDocument()
   })
 
   it('shows the LedeWire brand', () => {

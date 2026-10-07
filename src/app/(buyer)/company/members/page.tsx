@@ -4,6 +4,7 @@ import { createBuyerClient } from '@/lib/ledewire'
 import { getCompanyMembership } from '@/lib/company'
 import { getCompanyActivity } from '@/lib/company-activity'
 import { AuthError, LedewireError } from '@ledewire/node'
+import CompanyTabs from '../CompanyTabs'
 import NotInCompany from '../NotInCompany'
 import ActivitySnapshot from './ActivitySnapshot'
 import MembersManager from './MembersManager'
@@ -28,6 +29,7 @@ export default async function CompanyMembersPage() {
     const activity = await getCompanyActivity(members.data.map((m) => m.id))
     return (
       <div className="space-y-6">
+        <CompanyTabs current="people" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Members</h1>
           <p className="mt-1 text-sm text-gray-500">

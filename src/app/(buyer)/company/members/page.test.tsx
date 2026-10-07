@@ -177,4 +177,27 @@ describe('CompanyMembersPage', () => {
     expect(screen.queryByRole('group', { name: 'Today' })).not.toBeInTheDocument()
     expect(mockCompany.purchases.list).not.toHaveBeenCalled()
   })
+
+  it('shows an admin the Company tabs with People current', async () => {
+    await renderPage()
+    const tabs = screen.getByRole('navigation', { name: 'Company' })
+    const people = within(tabs).getByRole('link', { name: 'People' })
+    const purchases = within(tabs).getByRole('link', { name: 'Purchases' })
+    expect(people).toHaveAttribute('href', '/company/members')
+    expect(people).toHaveAttribute('aria-current', 'page')
+    expect(purchases).toHaveAttribute('href', '/company/purchases')
+    expect(purchases).not.toHaveAttribute('aria-current')
+  })
+
+  it('does not show the Company tabs to a non-admin', async () => {
+    vi.mocked(getCompanyMembership).mockResolvedValue({ ...adminMembership, role: 'member' })
+    await renderPage()
+    expect(screen.queryByRole('navigation', { name: 'Company' })).not.toBeInTheDocument()
+  })
+
+  it('does not show the Company tabs to a buyer in no Company', async () => {
+    vi.mocked(getCompanyMembership).mockResolvedValue(null)
+    await renderPage()
+    expect(screen.queryByRole('navigation', { name: 'Company' })).not.toBeInTheDocument()
+  })
 })
