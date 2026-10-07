@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { getCompanyMembership } from '@/lib/company'
+import { getMemberActivity } from '@/lib/company-activity'
 import { AuthError, LedewireError } from '@ledewire/node'
 import MembersManager from './MembersManager'
 
@@ -30,6 +31,7 @@ export default async function CompanyMembersPage() {
       client.company.members.list(),
       client.company.invitations.list(),
     ])
+    const activity = await getMemberActivity(members.data.map((m) => m.id))
     return (
       <div className="space-y-6">
         <div>
@@ -43,6 +45,7 @@ export default async function CompanyMembersPage() {
           initialMembers={members.data}
           initialInvitations={invitations.data}
           currentMembershipId={membership.id}
+          activity={activity}
         />
       </div>
     )

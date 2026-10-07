@@ -16,7 +16,7 @@ import { AuthError, LedewireError } from '@ledewire/node'
 import type { CompanyMember, CompanyMembership } from '@ledewire/node'
 import { redirect } from 'next/navigation'
 import { getCompanyMembership } from '@/lib/company'
-import { mockCompany } from '@/__mocks__/ledewire-client'
+import { mockCompany, mockUserSpendCap } from '@/__mocks__/ledewire-client'
 
 const adminMembership: CompanyMembership = {
   id: 'mem-1',
@@ -62,6 +62,21 @@ describe('CompanyMembersPage', () => {
       ],
     } as never)
     mockCompany.invitations.list.mockResolvedValue({ data: [] } as never)
+    mockUserSpendCap.get.mockResolvedValue({ spend_window_timezone: 'UTC' } as never)
+    mockCompany.spend.list.mockResolvedValue({
+      data: [
+        {
+          member: {
+            id: 'mem-1',
+            user_id: 'user-1',
+            name: 'Ada Admin',
+            kind: 'human',
+            left_at: null,
+          },
+          spend_cents: 320,
+        },
+      ],
+    } as never)
   })
 
   it('points a buyer in no Company to joining one', async () => {
@@ -97,5 +112,20 @@ describe('CompanyMembersPage', () => {
     const machines = screen.getByRole('region', { name: 'Machines' })
     expect(within(people).getByText('Ada Admin')).toBeInTheDocument()
     expect(within(machines).getByText('research-agent')).toBeInTheDocument()
+  })
+
+  it("shows an admin each member's spend against their cap", async () => {
+    await renderPage()
+    const people = screen.getByRole('region', { name: 'People' })
+    const machines = screen.getByRole('region', { name: 'Machines' })
+    expect(within(people).getByText('$3.20 of $10.00 today')).toBeInTheDocument()
+    expect(within(people).getByText('$3.20 last 30 days')).toBeInTheDocument()
+    expect(within(machines).getByText('$0.00 of $10.00 today')).toBeInTheDocument()
+  })
+
+  it("does not read the Company's spend for a non-admin", async () => {
+    vi.mocked(getCompanyMembership).mockResolvedValue({ ...adminMembership, role: 'member' })
+    await renderPage()
+    expect(mockCompany.spend.list).not.toHaveBeenCalled()
   })
 })
