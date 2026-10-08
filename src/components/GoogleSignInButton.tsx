@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import type { InvitationTokens } from '@/lib/invitations'
+import { fullPageNavigate } from '@/lib/navigation'
 
 declare global {
   interface Window {
@@ -15,6 +15,34 @@ declare global {
       }
     }
   }
+}
+
+const GSI_SRC = 'https://accounts.google.com/gsi/client'
+
+type CredentialHandler = (response: { credential: string }) => void
+
+// Google warns when initialized twice, so the page initializes it once and
+// routes each credential to whichever button is mounted now.
+let credentialHandler: CredentialHandler | null = null
+const initializedFor = new WeakMap<object, string>()
+
+/** Runs `onLoad` once the GSI library is loaded, adding its script only if missing. */
+function whenGsiLoaded(onLoad: () => void): () => void {
+  let script = document.querySelector<HTMLScriptElement>(`script[src="${GSI_SRC}"]`)
+  if (script && window.google) {
+    onLoad()
+    return () => {}
+  }
+  if (!script) {
+    script = document.createElement('script')
+    script.src = GSI_SRC
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+  }
+  const loading = script
+  loading.addEventListener('load', onLoad)
+  return () => loading.removeEventListener('load', onLoad)
 }
 
 interface Props {
@@ -31,14 +59,13 @@ export default function GoogleSignInButton({
   onError,
   onLoadingChange,
 }: Props) {
-  const router = useRouter()
   const btnRef = useRef<HTMLDivElement>(null)
-  // Primitives, so a fresh tokens object each render doesn't reload the GSI script.
+  // Primitives, so a fresh tokens object each render doesn't re-render the button.
   const companyInvitationToken = invitationTokens?.company_invitation_token
   const storeInvitationToken = invitationTokens?.invitation_token
 
   useEffect(() => {
-    const handleCredential = async (response: { credential: string }) => {
+    const handleCredential: CredentialHandler = async (response) => {
       onLoadingChange(true)
       onError('')
       try {
@@ -55,44 +82,40 @@ export default function GoogleSignInButton({
         if (!res.ok) {
           onError(data.error ?? 'Google sign-in failed')
         } else {
-          router.push(data.redirect ?? '/dashboard')
+          fullPageNavigate(data.redirect ?? '/dashboard')
+          // Stay busy: the next page replaces this one.
+          return
         }
       } catch {
         onError('Network error — please try again')
-      } finally {
-        onLoadingChange(false)
       }
+      onLoadingChange(false)
     }
 
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    script.onload = () => {
-      window.google?.accounts.id.initialize({
-        client_id: googleClientId,
-        callback: handleCredential,
-      })
+    credentialHandler = handleCredential
+    const stopWaiting = whenGsiLoaded(() => {
+      const gsi = window.google?.accounts.id
+      if (!gsi) return
+      if (initializedFor.get(gsi) !== googleClientId) {
+        gsi.initialize({
+          client_id: googleClientId,
+          callback: ((response) => credentialHandler?.(response)) satisfies CredentialHandler,
+        })
+        initializedFor.set(gsi, googleClientId)
+      }
       if (btnRef.current) {
-        window.google?.accounts.id.renderButton(btnRef.current, {
+        gsi.renderButton(btnRef.current, {
           theme: 'outline-solid',
           size: 'large',
           width: 320,
         })
       }
-    }
-    document.head.appendChild(script)
+    })
     return () => {
-      script.remove()
+      stopWaiting()
+      if (credentialHandler === handleCredential) credentialHandler = null
     }
-  }, [
-    googleClientId,
-    companyInvitationToken,
-    storeInvitationToken,
-    router,
-    onError,
-    onLoadingChange,
-  ])
+  }, [googleClientId, companyInvitationToken, storeInvitationToken, onError, onLoadingChange])
 
   return (
     <div className="flex flex-col items-center space-y-3">

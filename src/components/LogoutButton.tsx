@@ -1,20 +1,21 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { fullPageNavigate } from '@/lib/navigation'
 
 export default function LogoutButton() {
-  const router = useRouter()
   const [loading, setLoading] = useState(false)
 
   async function handleLogout() {
     setLoading(true)
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
-      router.push('/login')
-    } finally {
+    } catch {
       setLoading(false)
+      return
     }
+    // A full load, so no page cached for this session outlives it; stay busy until it lands.
+    fullPageNavigate('/login')
   }
 
   return (

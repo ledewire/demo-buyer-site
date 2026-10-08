@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, waitFor } from '@testing-library/react'
+import { fullPageNavigate } from '@/lib/navigation'
 import GoogleSignInButton from './GoogleSignInButton'
 
-const mockPush = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }))
+vi.mock('@/lib/navigation', () => ({ fullPageNavigate: vi.fn() }))
 
 // Simulate the GSI script loading and invoking the credential callback
 function simulateGoogleCredential(credential: string) {
@@ -12,7 +12,7 @@ function simulateGoogleCredential(credential: string) {
   script?.dispatchEvent(new Event('load'))
   // Invoke the callback registered with google.accounts.id.initialize
   const init = window.google?.accounts.id.initialize as ReturnType<typeof vi.fn>
-  const callback = init?.mock.calls[0]?.[0]?.callback
+  const callback = init?.mock.calls.at(-1)?.[0]?.callback
   callback?.({ credential })
 }
 
@@ -20,9 +20,13 @@ describe('GoogleSignInButton', () => {
   const onError = vi.fn()
   const onLoadingChange = vi.fn()
 
+  afterEach(() => {
+    document.querySelectorAll('script[src*="gsi/client"]').forEach((s) => s.remove())
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
-    mockPush.mockReset()
+    vi.mocked(fullPageNavigate).mockReset()
 
     // Stub the Google GSI API
     window.google = {
@@ -76,7 +80,7 @@ describe('GoogleSignInButton', () => {
       />,
     )
     simulateGoogleCredential('id_token_123')
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'))
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/dashboard'))
     expect(global.fetch).toHaveBeenCalledWith(
       '/api/auth/google',
       expect.objectContaining({
@@ -84,6 +88,20 @@ describe('GoogleSignInButton', () => {
         body: JSON.stringify({ id_token: 'id_token_123' }),
       }),
     )
+  })
+
+  it('stays busy while the next page loads', async () => {
+    render(
+      <GoogleSignInButton
+        googleClientId="gid_test"
+        onError={onError}
+        onLoadingChange={onLoadingChange}
+      />,
+    )
+    simulateGoogleCredential('id_token_123')
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalled())
+    expect(onLoadingChange).toHaveBeenCalledWith(true)
+    expect(onLoadingChange).not.toHaveBeenCalledWith(false)
   })
 
   it('sends the invitation tokens with the credential', async () => {
@@ -96,7 +114,7 @@ describe('GoogleSignInButton', () => {
       />,
     )
     simulateGoogleCredential('id_token_123')
-    await waitFor(() => expect(mockPush).toHaveBeenCalled())
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalled())
     expect(global.fetch).toHaveBeenCalledWith(
       '/api/auth/google',
       expect.objectContaining({
@@ -123,7 +141,7 @@ describe('GoogleSignInButton', () => {
       />,
     )
     simulateGoogleCredential('id_token_123')
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/company/members'))
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/company/members'))
   })
 
   it('shows a refused invitation and stays put', async () => {
@@ -142,7 +160,7 @@ describe('GoogleSignInButton', () => {
     )
     simulateGoogleCredential('id_token_123')
     await waitFor(() => expect(onError).toHaveBeenCalledWith(error))
-    expect(mockPush).not.toHaveBeenCalled()
+    expect(fullPageNavigate).not.toHaveBeenCalled()
   })
 
   it('calls onError when the API returns an error', async () => {
@@ -159,7 +177,7 @@ describe('GoogleSignInButton', () => {
     )
     simulateGoogleCredential('bad_token')
     await waitFor(() => expect(onError).toHaveBeenCalledWith('Google sign-in failed'))
-    expect(mockPush).not.toHaveBeenCalled()
+    expect(fullPageNavigate).not.toHaveBeenCalled()
   })
 
   it('calls onError on network failure', async () => {
@@ -175,16 +193,21 @@ describe('GoogleSignInButton', () => {
     await waitFor(() => expect(onError).toHaveBeenCalledWith('Network error — please try again'))
   })
 
-  it('removes the script on unmount', () => {
-    const { unmount } = render(
+  it('loads Google once however often the button mounts', async () => {
+    const button = (
       <GoogleSignInButton
         googleClientId="gid_test"
         onError={onError}
         onLoadingChange={onLoadingChange}
-      />,
+      />
     )
-    expect(document.querySelector('script[src*="gsi/client"]')).toBeTruthy()
-    unmount()
-    expect(document.querySelector('script[src*="gsi/client"]')).toBeNull()
+    const first = render(button)
+    document.querySelector('script[src*="gsi/client"]')?.dispatchEvent(new Event('load'))
+    first.unmount()
+    render(button)
+    simulateGoogleCredential('id_token_123')
+    expect(document.querySelectorAll('script[src*="gsi/client"]')).toHaveLength(1)
+    expect(window.google?.accounts.id.initialize).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/dashboard'))
   })
 })
