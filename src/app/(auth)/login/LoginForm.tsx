@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import GoogleSignInButton from '@/components/GoogleSignInButton'
 import { withInvitationTokens, type InvitationTokens } from '@/lib/invitations'
+import { fullPageNavigate } from '@/lib/navigation'
 
 interface Props {
   googleClientId: string | null
@@ -13,7 +13,6 @@ interface Props {
 }
 
 export default function LoginForm({ googleClientId, invitationTokens = {} }: Props) {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -38,7 +37,7 @@ export default function LoginForm({ googleClientId, invitationTokens = {} }: Pro
       } else {
         // Password sign-in can't carry an invitation, so finish it on /join.
         const companyToken = invitationTokens.company_invitation_token
-        router.push(
+        fullPageNavigate(
           companyToken ? `/join?${new URLSearchParams({ token: companyToken })}` : '/dashboard',
         )
       }

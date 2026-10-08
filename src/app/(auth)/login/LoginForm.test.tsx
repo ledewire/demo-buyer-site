@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { fullPageNavigate } from '@/lib/navigation'
 import LoginForm from './LoginForm'
 
 const mockPush = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }))
+vi.mock('@/lib/navigation', () => ({ fullPageNavigate: vi.fn() }))
 vi.mock('@/components/GoogleSignInButton', () => ({
   default: ({
     googleClientId,
@@ -36,6 +38,7 @@ function mockFetch(status: number, body: object) {
 describe('LoginForm', () => {
   beforeEach(() => {
     mockPush.mockReset()
+    vi.mocked(fullPageNavigate).mockReset()
   })
 
   it('renders email and password fields', () => {
@@ -50,7 +53,8 @@ describe('LoginForm', () => {
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'user@example.com' } })
     await userEvent.type(screen.getByLabelText(/password/i), 'password123')
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }))
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'))
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/dashboard'))
+    expect(mockPush).not.toHaveBeenCalled()
   })
 
   it('shows error on failed login', async () => {
@@ -62,7 +66,7 @@ describe('LoginForm', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent('Invalid email or password'),
     )
-    expect(mockPush).not.toHaveBeenCalled()
+    expect(fullPageNavigate).not.toHaveBeenCalled()
   })
 
   describe('with invitation tokens', () => {
@@ -78,7 +82,8 @@ describe('LoginForm', () => {
       mockFetch(200, { ok: true })
       render(<LoginForm googleClientId={null} invitationTokens={tokens} />)
       await signIn()
-      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/join?token=T+k'))
+      await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/join?token=T+k'))
+      expect(mockPush).not.toHaveBeenCalled()
       const init = vi.mocked(global.fetch).mock.calls[0][1] as RequestInit
       expect(JSON.parse(init.body as string)).toEqual({ email: 'a@b.com', password: 'secret123' })
     })
@@ -87,7 +92,8 @@ describe('LoginForm', () => {
       mockFetch(200, { ok: true })
       render(<LoginForm googleClientId={null} invitationTokens={{ invitation_token: 'S' }} />)
       await signIn()
-      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'))
+      await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/dashboard'))
+      expect(mockPush).not.toHaveBeenCalled()
     })
 
     it('hands the tokens to the Google button', () => {

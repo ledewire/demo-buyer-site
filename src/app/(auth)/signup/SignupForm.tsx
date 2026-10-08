@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import GoogleSignInButton from '@/components/GoogleSignInButton'
 import { withInvitationTokens, type InvitationTokens } from '@/lib/invitations'
+import { fullPageNavigate } from '@/lib/navigation'
 
 interface Props {
   googleClientId: string | null
@@ -13,7 +13,6 @@ interface Props {
 }
 
 export default function SignupForm({ googleClientId, invitationTokens = {} }: Props) {
-  const router = useRouter()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -37,7 +36,7 @@ export default function SignupForm({ googleClientId, invitationTokens = {} }: Pr
       if (!res.ok) {
         setError(data.error ?? 'Signup failed')
       } else {
-        router.push(data.redirect ?? '/dashboard')
+        fullPageNavigate(data.redirect ?? '/dashboard')
       }
     } catch {
       setError('Network error — please try again')

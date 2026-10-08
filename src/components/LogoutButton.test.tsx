@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { fullPageNavigate } from '@/lib/navigation'
 import LogoutButton from './LogoutButton'
 
 const mockPush = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }))
+vi.mock('@/lib/navigation', () => ({ fullPageNavigate: vi.fn() }))
 
 describe('LogoutButton', () => {
   beforeEach(() => {
@@ -17,10 +19,11 @@ describe('LogoutButton', () => {
     expect(screen.getByRole('button', { name: /log out/i })).toBeInTheDocument()
   })
 
-  it('calls logout API and redirects to /login on click', async () => {
+  it('calls logout API and reloads into /login on click', async () => {
     render(<LogoutButton />)
     await userEvent.click(screen.getByRole('button', { name: /log out/i }))
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/login'))
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/login'))
+    expect(mockPush).not.toHaveBeenCalled()
     expect(global.fetch).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST' })
   })
 
@@ -35,6 +38,6 @@ describe('LogoutButton', () => {
     await userEvent.click(screen.getByRole('button', { name: /log out/i }))
     expect(screen.getByRole('button', { name: /logging out/i })).toBeDisabled()
     resolveFetch()
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/login'))
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/login'))
   })
 })

@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { fullPageNavigate } from '@/lib/navigation'
 import SignupForm from './SignupForm'
 
 const mockPush = vi.fn()
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }))
+vi.mock('@/lib/navigation', () => ({ fullPageNavigate: vi.fn() }))
 vi.mock('@/components/GoogleSignInButton', () => ({
   default: ({
     googleClientId,
@@ -48,6 +50,7 @@ function sentBody() {
 describe('SignupForm', () => {
   beforeEach(() => {
     mockPush.mockReset()
+    vi.mocked(fullPageNavigate).mockReset()
   })
 
   it('renders name, email, and password fields', () => {
@@ -64,7 +67,8 @@ describe('SignupForm', () => {
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'alice@example.com' } })
     await userEvent.type(screen.getByLabelText(/password/i), 'securepassword')
     await userEvent.click(screen.getByRole('button', { name: /create account/i }))
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'))
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/dashboard'))
+    expect(mockPush).not.toHaveBeenCalled()
   })
 
   it('shows error on failed signup', async () => {
@@ -75,14 +79,15 @@ describe('SignupForm', () => {
     await userEvent.type(screen.getByLabelText(/password/i), 'securepassword')
     await userEvent.click(screen.getByRole('button', { name: /create account/i }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Email already taken'))
-    expect(mockPush).not.toHaveBeenCalled()
+    expect(fullPageNavigate).not.toHaveBeenCalled()
   })
 
   it('sends no invitation tokens without them', async () => {
     mockFetch(201, { ok: true })
     render(<SignupForm googleClientId={null} />)
     await fillAndSubmit()
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard'))
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/dashboard'))
+    expect(mockPush).not.toHaveBeenCalled()
     expect(sentBody()).toEqual({
       name: 'Alice',
       email: 'alice@example.com',
@@ -97,7 +102,7 @@ describe('SignupForm', () => {
       mockFetch(201, { ok: true })
       render(<SignupForm googleClientId={null} invitationTokens={tokens} />)
       await fillAndSubmit()
-      await waitFor(() => expect(mockPush).toHaveBeenCalled())
+      await waitFor(() => expect(fullPageNavigate).toHaveBeenCalled())
       expect(sentBody()).toEqual({
         name: 'Alice',
         email: 'alice@example.com',
@@ -111,7 +116,8 @@ describe('SignupForm', () => {
       mockFetch(201, { ok: true, redirect: '/wallet' })
       render(<SignupForm googleClientId={null} invitationTokens={tokens} />)
       await fillAndSubmit()
-      await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/wallet'))
+      await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/wallet'))
+      expect(mockPush).not.toHaveBeenCalled()
     })
 
     it.each([
@@ -129,7 +135,7 @@ describe('SignupForm', () => {
       render(<SignupForm googleClientId={null} invitationTokens={tokens} />)
       await fillAndSubmit()
       await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(error))
-      expect(mockPush).not.toHaveBeenCalled()
+      expect(fullPageNavigate).not.toHaveBeenCalled()
     })
 
     it('hands the tokens to the Google button', () => {
