@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import GoogleSignInButton from '@/components/GoogleSignInButton'
+import Logo from '@/components/Logo'
 import { withInvitationTokens, type InvitationTokens } from '@/lib/invitations'
 import { fullPageNavigate } from '@/lib/navigation'
 
@@ -50,6 +51,7 @@ export default function SignupForm({ googleClientId, invitationTokens = {} }: Pr
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
+          <Logo className="mx-auto mb-6 h-12 w-auto" />
           <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
           <p className="mt-1 text-sm text-gray-500">Start buying content on LedeWire</p>
         </div>
