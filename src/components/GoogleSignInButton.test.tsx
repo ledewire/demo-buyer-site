@@ -3,8 +3,6 @@ import { render, waitFor } from '@testing-library/react'
 import { fullPageNavigate } from '@/lib/navigation'
 import GoogleSignInButton from './GoogleSignInButton'
 
-const mockPush = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }))
 vi.mock('@/lib/navigation', () => ({ fullPageNavigate: vi.fn() }))
 
 // Simulate the GSI script loading and invoking the credential callback
@@ -28,7 +26,6 @@ describe('GoogleSignInButton', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockPush.mockReset()
     vi.mocked(fullPageNavigate).mockReset()
 
     // Stub the Google GSI API
@@ -84,7 +81,6 @@ describe('GoogleSignInButton', () => {
     )
     simulateGoogleCredential('id_token_123')
     await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/dashboard'))
-    expect(mockPush).not.toHaveBeenCalled()
     expect(global.fetch).toHaveBeenCalledWith(
       '/api/auth/google',
       expect.objectContaining({
@@ -92,6 +88,20 @@ describe('GoogleSignInButton', () => {
         body: JSON.stringify({ id_token: 'id_token_123' }),
       }),
     )
+  })
+
+  it('stays busy while the next page loads', async () => {
+    render(
+      <GoogleSignInButton
+        googleClientId="gid_test"
+        onError={onError}
+        onLoadingChange={onLoadingChange}
+      />,
+    )
+    simulateGoogleCredential('id_token_123')
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalled())
+    expect(onLoadingChange).toHaveBeenCalledWith(true)
+    expect(onLoadingChange).not.toHaveBeenCalledWith(false)
   })
 
   it('sends the invitation tokens with the credential', async () => {
@@ -132,7 +142,6 @@ describe('GoogleSignInButton', () => {
     )
     simulateGoogleCredential('id_token_123')
     await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/company/members'))
-    expect(mockPush).not.toHaveBeenCalled()
   })
 
   it('shows a refused invitation and stays put', async () => {

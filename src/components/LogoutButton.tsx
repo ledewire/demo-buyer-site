@@ -10,11 +10,12 @@ export default function LogoutButton() {
     setLoading(true)
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
-      // A full load, so no page cached for this session outlives it.
-      fullPageNavigate('/login')
-    } finally {
+    } catch {
       setLoading(false)
+      return
     }
+    // A full load, so no page cached for this session outlives it; stay busy until it lands.
+    fullPageNavigate('/login')
   }
 
   return (

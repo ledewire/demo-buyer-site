@@ -4,8 +4,6 @@ import userEvent from '@testing-library/user-event'
 import { fullPageNavigate } from '@/lib/navigation'
 import SignupForm from './SignupForm'
 
-const mockPush = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }))
 vi.mock('@/lib/navigation', () => ({ fullPageNavigate: vi.fn() }))
 vi.mock('@/components/GoogleSignInButton', () => ({
   default: ({
@@ -49,7 +47,6 @@ function sentBody() {
 
 describe('SignupForm', () => {
   beforeEach(() => {
-    mockPush.mockReset()
     vi.mocked(fullPageNavigate).mockReset()
   })
 
@@ -68,7 +65,17 @@ describe('SignupForm', () => {
     await userEvent.type(screen.getByLabelText(/password/i), 'securepassword')
     await userEvent.click(screen.getByRole('button', { name: /create account/i }))
     await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/dashboard'))
-    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('stays busy while the dashboard loads', async () => {
+    mockFetch(201, { ok: true })
+    render(<SignupForm googleClientId={null} />)
+    await userEvent.type(screen.getByLabelText(/full name/i), 'Alice')
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'alice@example.com' } })
+    await userEvent.type(screen.getByLabelText(/password/i), 'securepassword')
+    await userEvent.click(screen.getByRole('button', { name: /create account/i }))
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalled())
+    expect(screen.getByRole('button', { name: /creating account/i })).toBeDisabled()
   })
 
   it('shows error on failed signup', async () => {
@@ -87,7 +94,6 @@ describe('SignupForm', () => {
     render(<SignupForm googleClientId={null} />)
     await fillAndSubmit()
     await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/dashboard'))
-    expect(mockPush).not.toHaveBeenCalled()
     expect(sentBody()).toEqual({
       name: 'Alice',
       email: 'alice@example.com',
@@ -117,7 +123,6 @@ describe('SignupForm', () => {
       render(<SignupForm googleClientId={null} invitationTokens={tokens} />)
       await fillAndSubmit()
       await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/wallet'))
-      expect(mockPush).not.toHaveBeenCalled()
     })
 
     it.each([

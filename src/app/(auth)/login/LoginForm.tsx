@@ -40,12 +40,13 @@ export default function LoginForm({ googleClientId, invitationTokens = {} }: Pro
         fullPageNavigate(
           companyToken ? `/join?${new URLSearchParams({ token: companyToken })}` : '/dashboard',
         )
+        // Stay busy: the next page replaces this one.
+        return
       }
     } catch {
       setError('Network error — please try again')
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   return (

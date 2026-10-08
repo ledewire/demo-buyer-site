@@ -83,12 +83,13 @@ export default function GoogleSignInButton({
           onError(data.error ?? 'Google sign-in failed')
         } else {
           fullPageNavigate(data.redirect ?? '/dashboard')
+          // Stay busy: the next page replaces this one.
+          return
         }
       } catch {
         onError('Network error — please try again')
-      } finally {
-        onLoadingChange(false)
       }
+      onLoadingChange(false)
     }
 
     credentialHandler = handleCredential
@@ -98,7 +99,7 @@ export default function GoogleSignInButton({
       if (initializedFor.get(gsi) !== googleClientId) {
         gsi.initialize({
           client_id: googleClientId,
-          callback: (response: { credential: string }) => credentialHandler?.(response),
+          callback: ((response) => credentialHandler?.(response)) satisfies CredentialHandler,
         })
         initializedFor.set(gsi, googleClientId)
       }

@@ -4,8 +4,6 @@ import userEvent from '@testing-library/user-event'
 import { fullPageNavigate } from '@/lib/navigation'
 import LogoutButton from './LogoutButton'
 
-const mockPush = vi.fn()
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }))
 vi.mock('@/lib/navigation', () => ({ fullPageNavigate: vi.fn() }))
 
 describe('LogoutButton', () => {
@@ -23,8 +21,14 @@ describe('LogoutButton', () => {
     render(<LogoutButton />)
     await userEvent.click(screen.getByRole('button', { name: /log out/i }))
     await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/login'))
-    expect(mockPush).not.toHaveBeenCalled()
     expect(global.fetch).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST' })
+  })
+
+  it('stays busy while /login loads', async () => {
+    render(<LogoutButton />)
+    await userEvent.click(screen.getByRole('button', { name: /log out/i }))
+    await waitFor(() => expect(fullPageNavigate).toHaveBeenCalled())
+    expect(screen.getByRole('button', { name: /logging out/i })).toBeDisabled()
   })
 
   it('shows loading state while logging out', async () => {

@@ -37,12 +37,13 @@ export default function SignupForm({ googleClientId, invitationTokens = {} }: Pr
         setError(data.error ?? 'Signup failed')
       } else {
         fullPageNavigate(data.redirect ?? '/dashboard')
+        // Stay busy: the next page replaces this one.
+        return
       }
     } catch {
       setError('Network error — please try again')
-    } finally {
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   return (

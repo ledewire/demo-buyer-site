@@ -3,6 +3,9 @@
  * Use it whenever the signed-in identity changes, so no page rendered for the
  * previous session survives into the next one.
  */
-export function fullPageNavigate(url: string): void {
-  window.location.assign(url)
+export function fullPageNavigate(
+  url: string,
+  location: Pick<Location, 'assign'> = window.location,
+): void {
+  location.assign(url)
 }
