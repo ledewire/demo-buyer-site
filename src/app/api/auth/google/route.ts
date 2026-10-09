@@ -3,7 +3,7 @@ import { createClient, LedewireError, AuthError, parseExpiresAt } from '@ledewir
 import { getSession } from '@/lib/session'
 import { config } from '@/lib/config'
 import { pickInvitationTokens, refusedInvitationLanding } from '@/lib/invitations'
-import { invitationRefusedResponse, joinedCompanyLanding } from '@/lib/invitation-auth'
+import { invitationRefusedResponse, companyInvitationLanding } from '@/lib/invitation-auth'
 
 export async function POST(request: NextRequest) {
   let body: unknown
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
     if (!tokens.company_invitation_token) return NextResponse.json({ ok: true })
 
-    const redirect = await joinedCompanyLanding(client, tokens.company_invitation_token)
+    const redirect = await companyInvitationLanding(client, tokens.company_invitation_token)
     return NextResponse.json(redirect ? { ok: true, redirect } : { ok: true })
   } catch (err) {
     const refused = invitationRefusedResponse(err)

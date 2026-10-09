@@ -105,6 +105,7 @@ describe('POST /api/auth/signup', () => {
       expect(mockSignup).toHaveBeenCalledWith({ ...fields, invitation_token: 'S' })
       expect(await res.json()).toEqual({ ok: true })
       expect(mockMembershipGet).not.toHaveBeenCalled()
+      expect(mockInvitationAccept).not.toHaveBeenCalled()
     })
 
     it.each([
