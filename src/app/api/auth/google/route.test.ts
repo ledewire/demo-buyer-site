@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 
 const mockLoginWithGoogle = vi.fn()
 const mockMembershipGet = vi.fn()
+const mockInvitationAccept = vi.fn()
 
 vi.mock('@/lib/session', () => ({ getSession: vi.fn() }))
 vi.mock('@/lib/config', () => ({ config: { ledewireBaseUrl: 'https://api.ledewire.com' } }))
@@ -12,7 +13,7 @@ vi.mock('@ledewire/node', async () => {
 })
 
 import { POST } from './route'
-import { AuthError, LedewireError, createClient } from '@ledewire/node'
+import { AuthError, LedewireError, NotFoundError, createClient } from '@ledewire/node'
 import { getSession } from '@/lib/session'
 
 const mockSession = {
@@ -37,7 +38,10 @@ describe('POST /api/auth/google', () => {
     vi.mocked(getSession).mockResolvedValue(mockSession as never)
     vi.mocked(createClient).mockReturnValue({
       auth: { loginWithGoogle: mockLoginWithGoogle },
-      company: { membership: { get: mockMembershipGet } },
+      company: {
+        membership: { get: mockMembershipGet },
+        invitations: { accept: mockInvitationAccept },
+      },
     } as never)
   })
 
@@ -65,6 +69,8 @@ describe('POST /api/auth/google', () => {
     expect(mockLoginWithGoogle).toHaveBeenCalledWith({ id_token: 'google_token' })
     expect(mockSession.accessToken).toBe('tok_a')
     expect(mockSession.save).toHaveBeenCalled()
+    expect(mockMembershipGet).not.toHaveBeenCalled()
+    expect(mockInvitationAccept).not.toHaveBeenCalled()
   })
 
   it('returns 401 on AuthError', async () => {
@@ -105,6 +111,60 @@ describe('POST /api/auth/google', () => {
       mockMembershipGet.mockResolvedValue({ role: 'admin' })
       const res = await POST(makeRequest({ id_token: 'g', company_invitation_token: 'T' }))
       expect(await res.json()).toEqual({ ok: true, redirect: '/company/members' })
+    })
+
+    it('does not accept the invitation again once the buyer is in the Company', async () => {
+      mockLoginWithGoogle.mockResolvedValue(authRes)
+      mockMembershipGet.mockResolvedValue({ role: 'member' })
+      await POST(makeRequest({ id_token: 'g', company_invitation_token: 'T' }))
+      expect(mockInvitationAccept).not.toHaveBeenCalled()
+    })
+
+    describe('when the sign-in left the buyer outside the Company', () => {
+      beforeEach(() => {
+        vi.spyOn(console, 'warn').mockImplementation(() => {})
+        mockLoginWithGoogle.mockResolvedValue(authRes) // no `invitations` refusal
+        mockMembershipGet.mockRejectedValue(new NotFoundError('No open membership'))
+      })
+
+      it('accepts the invitation itself', async () => {
+        mockInvitationAccept.mockResolvedValue({ role: 'member' })
+        await POST(makeRequest({ id_token: 'g', company_invitation_token: 'T' }))
+        expect(mockInvitationAccept).toHaveBeenCalledWith({ token: 'T' })
+      })
+
+      it.each([
+        ['member', '/wallet'],
+        ['admin', '/company/members'],
+      ])('lands the joined buyer (%s) on %s', async (role, redirect) => {
+        mockInvitationAccept.mockResolvedValue({ role })
+        const res = await POST(makeRequest({ id_token: 'g', company_invitation_token: 'T' }))
+        expect(await res.json()).toEqual({ ok: true, redirect })
+      })
+
+      it('signs in and reports why when that accept is refused', async () => {
+        mockInvitationAccept.mockRejectedValue(
+          new LedewireError('Invitation has expired', 410, 410, 'invitation_not_accepted', {
+            reason: 'expired',
+          }),
+        )
+        const res = await POST(makeRequest({ id_token: 'g', company_invitation_token: 'T' }))
+        expect(res.status).toBe(200)
+        expect(mockSession.save).toHaveBeenCalled()
+        expect(await res.json()).toEqual({
+          ok: true,
+          redirect: '/dashboard?invitation_refused=expired',
+        })
+      })
+    })
+
+    it('does not accept, and lands on the default page, when the lookup fails otherwise', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockLoginWithGoogle.mockResolvedValue(authRes)
+      mockMembershipGet.mockRejectedValue(new LedewireError('Server error', 500))
+      const res = await POST(makeRequest({ id_token: 'g', company_invitation_token: 'T' }))
+      expect(await res.json()).toEqual({ ok: true })
+      expect(mockInvitationAccept).not.toHaveBeenCalled()
     })
 
     it('sends an existing account whose invitation was accepted to its Company page', async () => {
