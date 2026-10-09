@@ -49,8 +49,11 @@ describe('GET /company/invitations/accept', () => {
   })
 
   it('keeps a token with reserved characters intact', async () => {
-    const res = await visit(`?token=${encodeURIComponent('a&b=c')}`)
-    const location = new URL(res.headers.get('location') ?? '')
-    expect(location.searchParams.get('company_invitation_token')).toBe('a&b=c')
+    const signedOut = new URL((await visit('?token=a%26b%3Dc')).headers.get('location') ?? '')
+    expect(signedOut.searchParams.get('company_invitation_token')).toBe('a&b=c')
+
+    vi.mocked(getSession).mockResolvedValue({ accessToken: 'tok_a' } as never)
+    const signedIn = new URL((await visit('?token=a%26b%3Dc')).headers.get('location') ?? '')
+    expect(signedIn.searchParams.get('token')).toBe('a&b=c')
   })
 })

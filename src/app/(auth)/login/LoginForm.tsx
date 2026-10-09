@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import GoogleSignInButton from '@/components/GoogleSignInButton'
 import Logo from '@/components/Logo'
-import { withInvitationTokens, type InvitationTokens } from '@/lib/invitations'
+import { joinPath, withInvitationTokens, type InvitationTokens } from '@/lib/invitations'
 import { fullPageNavigate } from '@/lib/navigation'
 
 interface Props {
@@ -38,9 +38,7 @@ export default function LoginForm({ googleClientId, invitationTokens = {} }: Pro
       } else {
         // Password sign-in can't carry an invitation, so finish it on /join.
         const companyToken = invitationTokens.company_invitation_token
-        fullPageNavigate(
-          companyToken ? `/join?${new URLSearchParams({ token: companyToken })}` : '/dashboard',
-        )
+        fullPageNavigate(companyToken ? joinPath(companyToken) : '/dashboard')
         // Stay busy: the next page replaces this one.
         return
       }

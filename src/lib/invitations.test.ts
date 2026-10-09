@@ -6,6 +6,7 @@ import {
   refusedInvitationLanding,
   refusedInvitationNotice,
   withInvitationTokens,
+  joinPath,
 } from './invitations'
 
 describe('pickInvitationTokens', () => {
@@ -20,6 +21,16 @@ describe('pickInvitationTokens', () => {
       pickInvitationTokens({ company_invitation_token: ['C'], invitation_token: '  ' }),
     ).toEqual({})
     expect(pickInvitationTokens({})).toEqual({})
+  })
+})
+
+describe('joinPath', () => {
+  it('is the plain join page without a token', () => {
+    expect(joinPath()).toBe('/join')
+  })
+
+  it('prefills an encoded token', () => {
+    expect(joinPath('a&b=c')).toBe('/join?token=a%26b%3Dc')
   })
 })
 

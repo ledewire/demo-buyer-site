@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Reachable signed out: it carries the invitation token to sign-in itself,
-// which a redirect from here would drop (#45).
-const PUBLIC_PATHS = new Set(['/company/invitations/accept'])
+// The existing account's invitation link. Reachable signed out: it carries the
+// token to sign-in itself, which a redirect from here would drop (#45).
+const INVITATION_LINK_PATH = '/company/invitations/accept'
 
 export function middleware(request: NextRequest) {
-  if (PUBLIC_PATHS.has(request.nextUrl.pathname)) return NextResponse.next()
+  if (request.nextUrl.pathname === INVITATION_LINK_PATH) return NextResponse.next()
   const session = request.cookies.get('lw_buyer_session')
   if (!session) {
     const loginUrl = new URL('/login', request.url)

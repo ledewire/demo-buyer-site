@@ -78,7 +78,9 @@ await expect(CompanyMembersPage()).rejects.toThrow('NEXT_REDIRECT') // a redirec
 
 ## Adding a new route handler
 
-1. Create `src/app/api/<resource>/route.ts`
+1. Create `src/app/api/<resource>/route.ts`. The exception is a handler that serves a link
+   the Ledewire API emails out (e.g. `src/app/company/invitations/accept/route.ts`): it lives at
+   the URL the email names, and redirects rather than returning JSON, so steps 2–5 don't apply.
 2. Guard authenticated routes with `requireAuthForRoute()` at the top
 3. Use `createBuyerClient()` to get an authenticated client
 4. Follow the error-handling pattern from existing routes: `AuthError → 401`, `LedewireError → err.statusCode`, unknown → `500`
