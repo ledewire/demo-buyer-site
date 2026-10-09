@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { LedewireError } from '@ledewire/node'
+import { LedewireError, NotFoundError } from '@ledewire/node'
 import { invitationRefusedResponse, joinedCompanyLanding } from './invitation-auth'
 
 function refusal(details: Record<string, unknown>) {
@@ -38,22 +38,69 @@ describe('invitationRefusedResponse', () => {
 })
 
 describe('joinedCompanyLanding', () => {
-  function clientWith(get: () => Promise<unknown>) {
-    return { company: { membership: { get } } } as never
+  function clientWith(get: () => Promise<unknown>, accept = vi.fn()) {
+    return { company: { membership: { get }, invitations: { accept } } } as never
+  }
+  const notInCompany = async () => {
+    throw new NotFoundError('No open membership')
   }
 
   it('lands an admin on the members page and a member on the wallet', async () => {
-    expect(await joinedCompanyLanding(clientWith(async () => ({ role: 'admin' })))).toBe(
-      '/company/members',
-    )
-    expect(await joinedCompanyLanding(clientWith(async () => ({ role: 'member' })))).toBe('/wallet')
+    expect(
+      await joinedCompanyLanding(
+        clientWith(async () => ({ role: 'admin' })),
+        'T',
+      ),
+    ).toBe('/company/members')
+    expect(
+      await joinedCompanyLanding(
+        clientWith(async () => ({ role: 'member' })),
+        'T',
+      ),
+    ).toBe('/wallet')
   })
 
-  it('falls back to the default landing when the lookup fails', async () => {
+  it('does not accept the invitation again when the buyer already joined', async () => {
+    const accept = vi.fn()
+    await joinedCompanyLanding(
+      clientWith(async () => ({ role: 'member' }), accept),
+      'T',
+    )
+    expect(accept).not.toHaveBeenCalled()
+  })
+
+  it('accepts the invitation itself when the sign-in left the buyer outside the Company', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const accept = vi.fn().mockResolvedValue({ role: 'admin' })
+    expect(await joinedCompanyLanding(clientWith(notInCompany, accept), 'T')).toBe(
+      '/company/members',
+    )
+    expect(accept).toHaveBeenCalledWith({ token: 'T' })
+    expect(console.warn).toHaveBeenCalled()
+  })
+
+  it('lands on the dashboard notice when that accept is refused', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const accept = vi.fn().mockRejectedValue(refusal({ reason: 'expired' }))
+    expect(await joinedCompanyLanding(clientWith(notInCompany, accept), 'T')).toBe(
+      '/dashboard?invitation_refused=expired',
+    )
+  })
+
+  it('falls back to the default landing when that accept fails otherwise', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    const accept = vi.fn().mockRejectedValue(new LedewireError('Server error', 500))
+    expect(await joinedCompanyLanding(clientWith(notInCompany, accept), 'T')).toBeUndefined()
+  })
+
+  it('falls back to the default landing, without accepting, when the lookup fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const accept = vi.fn()
     const failing = clientWith(async () => {
       throw new LedewireError('Server error', 500)
-    })
-    expect(await joinedCompanyLanding(failing)).toBeUndefined()
+    }, accept)
+    expect(await joinedCompanyLanding(failing, 'T')).toBeUndefined()
+    expect(accept).not.toHaveBeenCalled()
   })
 })

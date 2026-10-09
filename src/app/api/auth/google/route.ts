@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
     if (!tokens.company_invitation_token) return NextResponse.json({ ok: true })
 
-    const redirect = await joinedCompanyLanding(client)
+    const redirect = await joinedCompanyLanding(client, tokens.company_invitation_token)
     return NextResponse.json(redirect ? { ok: true, redirect } : { ok: true })
   } catch (err) {
     const refused = invitationRefusedResponse(err)

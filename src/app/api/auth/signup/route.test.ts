@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 
 const mockSignup = vi.fn()
 const mockMembershipGet = vi.fn()
+const mockInvitationAccept = vi.fn()
 
 vi.mock('@/lib/session', () => ({ getSession: vi.fn() }))
 vi.mock('@/lib/config', () => ({ config: { ledewireBaseUrl: 'https://api.ledewire.com' } }))
@@ -12,7 +13,7 @@ vi.mock('@ledewire/node', async () => {
 })
 
 import { POST } from './route'
-import { LedewireError, createClient } from '@ledewire/node'
+import { LedewireError, NotFoundError, createClient } from '@ledewire/node'
 import { getSession } from '@/lib/session'
 
 const mockSession = {
@@ -37,7 +38,10 @@ describe('POST /api/auth/signup', () => {
     vi.mocked(getSession).mockResolvedValue(mockSession as never)
     vi.mocked(createClient).mockReturnValue({
       auth: { signup: mockSignup },
-      company: { membership: { get: mockMembershipGet } },
+      company: {
+        membership: { get: mockMembershipGet },
+        invitations: { accept: mockInvitationAccept },
+      },
     } as never)
   })
 
@@ -121,6 +125,18 @@ describe('POST /api/auth/signup', () => {
       expect(res.status).toBe(201)
       expect(await res.json()).toEqual({ ok: true })
       expect(mockSession.accessToken).toBe('tok_a')
+      expect(mockInvitationAccept).not.toHaveBeenCalled()
+    })
+
+    it('accepts the invitation itself when the signup left the buyer outside the Company', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+      mockSignup.mockResolvedValue(authRes)
+      mockMembershipGet.mockRejectedValue(new NotFoundError('No open membership'))
+      mockInvitationAccept.mockResolvedValue({ role: 'member' })
+      const res = await POST(makeRequest({ ...fields, company_invitation_token: 'T' }))
+      expect(mockInvitationAccept).toHaveBeenCalledWith({ token: 'T' })
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({ ok: true, redirect: '/wallet' })
     })
 
     it.each([

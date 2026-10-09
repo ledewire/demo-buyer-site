@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     await session.save()
     // A signup carrying a Company token that succeeded has joined the Company.
     const redirect = tokens.company_invitation_token
-      ? await joinedCompanyLanding(client)
+      ? await joinedCompanyLanding(client, tokens.company_invitation_token)
       : undefined
     return NextResponse.json(redirect ? { ok: true, redirect } : { ok: true }, { status: 201 })
   } catch (err) {
