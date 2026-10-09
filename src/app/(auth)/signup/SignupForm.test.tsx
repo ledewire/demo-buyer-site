@@ -57,6 +57,14 @@ describe('SignupForm', () => {
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
   })
 
+  it('shows the LedeWire logo', () => {
+    render(<SignupForm googleClientId={null} />)
+    expect(screen.getByRole('img', { name: 'LedeWire' })).toHaveAttribute(
+      'src',
+      '/ledewire-logo.png',
+    )
+  })
+
   it('redirects to /dashboard on successful signup', async () => {
     mockFetch(201, { ok: true })
     render(<SignupForm googleClientId={null} />)

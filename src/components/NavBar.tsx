@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Logo from './Logo'
 import LogoutButton from './LogoutButton'
 
 const navLinks = [
@@ -25,7 +26,9 @@ export default function NavBar({ isCompanyAdmin = false }: Props) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-8">
-            <span className="font-bold text-indigo-700 text-lg">LedeWire</span>
+            <Link href="/dashboard">
+              <Logo />
+            </Link>
             <div className="hidden sm:flex space-x-6">
               {links.map(({ href, label }) => (
                 <Link

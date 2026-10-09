@@ -36,9 +36,11 @@ describe('NavBar', () => {
     expect(screen.queryByRole('link', { name: 'Company Purchases' })).not.toBeInTheDocument()
   })
 
-  it('shows the LedeWire brand', () => {
+  it('shows the LedeWire logo, linking to the dashboard', () => {
     render(<NavBar />)
-    expect(screen.getByText('LedeWire')).toBeInTheDocument()
+    const logo = screen.getByRole('img', { name: 'LedeWire' })
+    expect(logo).toHaveAttribute('src', '/ledewire-logo.png')
+    expect(logo.closest('a')).toHaveAttribute('href', '/dashboard')
   })
 
   it('renders a logout button', () => {
