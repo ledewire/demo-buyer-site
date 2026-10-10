@@ -35,6 +35,13 @@ export function withInvitationTokens(path: string, tokens: InvitationTokens): st
   return query.size ? `${path}?${query}` : path
 }
 
+/** The join page, with the Company invitation token prefilled when there is one. */
+export function joinPath(companyInvitationToken?: string): string {
+  return companyInvitationToken
+    ? `/join?${new URLSearchParams({ token: companyInvitationToken })}`
+    : '/join'
+}
+
 /**
  * Says why an invitation was refused, from the API's `reason`
  * (`InvitationRefusalReason`). Unknown reasons get a generic message.
