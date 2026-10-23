@@ -18,6 +18,20 @@ describe('ledewireErrorResponse', () => {
     expect(await res.json()).toEqual({ error: 'quote expired', type: 'quote_expired' })
   })
 
+  it('carries retryAfter on a 429 as a Retry-After header', () => {
+    const res = ledewireErrorResponse(
+      new LedewireError('slow', 429, undefined, undefined, undefined, 30),
+      'test',
+    )
+    expect(res.status).toBe(429)
+    expect(res.headers.get('Retry-After')).toBe('30')
+  })
+
+  it('sets no Retry-After when the error has no retryAfter', () => {
+    const res = ledewireErrorResponse(new LedewireError('slow', 429), 'test')
+    expect(res.headers.get('Retry-After')).toBeNull()
+  })
+
   it('maps SpendCapReachedError to 402 with resets_at', async () => {
     const err = Object.assign(Object.create(SpendCapReachedError.prototype), {
       message: 'cap reached',

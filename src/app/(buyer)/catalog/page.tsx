@@ -2,21 +2,32 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { formatDate } from '@/lib/format'
-import { filterPublications, getAllPublications } from '@/lib/publications'
+import { createBuyerClient } from '@/lib/ledewire'
 import ExportSelectionSummary from '@/components/ExportSelectionSummary'
+import Pagination from '@/components/Pagination'
+import { catalogHref, parseCatalogFilters } from './filters'
 import { AuthError, LedewireError } from '@ledewire/node'
 
+const PER_PAGE = 50
+
 interface Props {
-  searchParams: Promise<{ q?: string; licensable?: string }>
+  searchParams: Promise<{ q?: string; licensable?: string; page?: string }>
 }
 
 export default async function CatalogPage({ searchParams }: Props) {
   await requireAuth()
-  const { q = '', licensable } = await searchParams
-  const licensableOnly = licensable === '1'
+  const { filters, page } = parseCatalogFilters(await searchParams)
+  const { q, licensableOnly } = filters
 
   try {
-    const publications = filterPublications(await getAllPublications(), q, licensableOnly)
+    const client = await createBuyerClient()
+    // `bulk_licensable: false` would mean non-licensable only, so leave it unset unless filtering.
+    const { data: publications, pagination } = await client.publications.list({
+      page,
+      per_page: PER_PAGE,
+      ...(q && { q }),
+      ...(licensableOnly && { bulk_licensable: true }),
+    })
     return (
       <div className="space-y-6">
         <div>
@@ -89,6 +100,8 @@ export default async function CatalogPage({ searchParams }: Props) {
             ))}
           </ul>
         )}
+
+        <Pagination pagination={pagination} hrefFor={(n) => catalogHref(filters, n)} />
       </div>
     )
   } catch (err) {

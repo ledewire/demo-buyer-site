@@ -17,5 +17,6 @@ export const mockUserSpendCap = mockClient.user.spendCap
 export const mockCompany = mockClient.company
 export const mockPublications = mockClient.publications
 export const mockAcquisitions = mockClient.acquisitions
+export const mockContent = mockClient.content
 
 export const createBuyerClient = vi.fn().mockResolvedValue(mockClient)

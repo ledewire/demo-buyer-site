@@ -1,8 +1,8 @@
 import Link from 'next/link'
-import type { CompanyPurchaseList } from '@ledewire/node'
+import type { PaginationMeta } from '@ledewire/node'
 
 interface Props {
-  pagination: CompanyPurchaseList['pagination']
+  pagination: PaginationMeta
   /** The URL of a page of the same listing. */
   hrefFor: (page: number) => string
 }

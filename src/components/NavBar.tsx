@@ -4,6 +4,7 @@ import LogoutButton from './LogoutButton'
 
 const navLinks = [
   { href: '/dashboard', label: 'Dashboard' },
+  { href: '/search', label: 'Search' },
   { href: '/wallet', label: 'Wallet' },
   { href: '/purchases', label: 'Purchases' },
   { href: '/catalog', label: 'Catalog' },
