@@ -406,5 +406,23 @@ describe('ContentSearch', () => {
       expect(stored.some((v) => v.includes('Secret seas.'))).toBe(false)
       expect(setItem.mock.calls.some(([, v]) => String(v).includes('Secret seas.'))).toBe(false)
     })
+
+    it('says so when the balance can’t be loaded', async () => {
+      const user = userEvent.setup()
+      renderSearch({ initialPage: page([makeResult()]) })
+      mockFetchOnce(500, { error: 'boom' })
+      await user.click(screen.getByRole('button', { name: 'Buy Ocean heat' }))
+      expect(await screen.findByText('Your balance couldn’t be loaded.')).toBeInTheDocument()
+    })
+
+    it('renders a brokered body as markdown, raw HTML dropped', async () => {
+      const user = userEvent.setup()
+      const { container } = renderSearch({
+        initialPage: page([makeResult({ content_type: 'brokered' })]),
+      })
+      await buy(user, { content_type: 'brokered', content_body: '# Abstract\n\n<i>x</i>Plain.' })
+      expect(await screen.findByRole('heading', { name: 'Abstract' })).toBeInTheDocument()
+      expect(container.querySelector('i')).toBeNull()
+    })
   })
 })
