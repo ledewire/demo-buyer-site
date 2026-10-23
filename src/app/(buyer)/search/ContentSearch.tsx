@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { ContentSearchResponse, ContentSearchResultWithPublication } from '@ledewire/node'
 import { formatCents } from '@/lib/format'
-import { resultTitle, retryAfterSeconds, searchQueryString } from '@/lib/search'
+import { resultSource, resultTitle, retryAfterSeconds, searchQueryString } from '@/lib/search'
 import BuyConfirmation from './BuyConfirmation'
 import ArticleView, { type BoughtWork } from './ArticleView'
 import ErrorAlert from './ErrorAlert'
@@ -215,7 +215,7 @@ function ResultRow({
         </div>
       </div>
       <p className="text-xs text-gray-500">
-        <span>{result.store_name}</span>
+        <span>{resultSource(result)}</span>
         {result.authors && result.authors.length > 0 && <span> · {result.authors.join(', ')}</span>}
       </p>
       {result.teaser && <p className="text-sm text-gray-700">{result.teaser}</p>}

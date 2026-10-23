@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { parseSearchFilters, retryAfterSeconds, searchQueryString } from './search'
+import { makeResult } from '@/test/search-fixtures'
+import { parseSearchFilters, resultSource, retryAfterSeconds, searchQueryString } from './search'
 
 describe('parseSearchFilters', () => {
   it('is null with no query to search for', () => {
@@ -57,5 +58,29 @@ describe('retryAfterSeconds', () => {
 
   it('waits a minute when the wait is missing, zero or not a number', () => {
     for (const v of [undefined, null, 0, -3, 'soon']) expect(retryAfterSeconds(v)).toBe(60)
+  })
+})
+
+describe('resultSource', () => {
+  const FUTURISM = { id: 'p-1', name: 'Futurism', bulk_licensable: false, topics: [] }
+  const brokered = (url: string | null) =>
+    makeResult({ content_type: 'brokered', store_name: 'LedeWire', url, publication: null })
+
+  it('names the Publication whenever there is one', () => {
+    expect(resultSource(makeResult({ publication: FUTURISM }))).toBe('Futurism')
+    expect(resultSource({ ...brokered('https://futurism.com/ev'), publication: FUTURISM })).toBe(
+      'Futurism',
+    )
+  })
+
+  it('names a brokered work on no listed Publication by its site, without www.', () => {
+    expect(resultSource(brokered('https://www.inc.com/a'))).toBe('inc.com')
+    expect(resultSource(brokered('http://m.futurism.com/b'))).toBe('m.futurism.com')
+  })
+
+  it('falls back to the store for a Store work, or a brokered work with no web URL', () => {
+    expect(resultSource(makeResult())).toBe('Daily Planet')
+    expect(resultSource(brokered(null))).toBe('LedeWire')
+    expect(resultSource(brokered('javascript:alert(1)'))).toBe('LedeWire')
   })
 })

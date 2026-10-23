@@ -1,5 +1,6 @@
-import type { BuyerContentSearchRequest } from '@ledewire/node'
+import type { BuyerContentSearchRequest, ContentSearchResultWithPublication } from '@ledewire/node'
 import { parseCapCents } from './spend-cap'
+import { isWebUrl } from './web-url'
 
 /** The filters a search was run with; Load more must send the same ones with its cursor. */
 export type SearchFilters = Pick<BuyerContentSearchRequest, 'max_price_cents'> & { query: string }
@@ -49,4 +50,17 @@ export function retryAfterSeconds(value: number | string | null | undefined): nu
 /** A search result's title for display; a result's title can be empty. */
 export function resultTitle(result: { title: string }): string {
   return result.title || 'Untitled'
+}
+
+/**
+ * Who a search result comes from: its Publication when it has one, else its store. A brokered
+ * work's `store_name` is always `LedeWire`, which sells it, so one on no listed Publication is
+ * named by its site instead.
+ */
+export function resultSource(result: ContentSearchResultWithPublication): string {
+  if (result.publication) return result.publication.name
+  if (result.content_type === 'brokered' && isWebUrl(result.url)) {
+    return new URL(result.url).hostname.replace(/^www\./, '')
+  }
+  return result.store_name
 }
