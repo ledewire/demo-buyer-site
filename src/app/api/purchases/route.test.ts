@@ -64,6 +64,16 @@ describe('GET /api/purchases', () => {
     const res = await GET()
     expect(res.status).toBe(500)
   })
+
+  it('passes on a rate limit with its type and Retry-After, like every other route', async () => {
+    mockPurchasesList.mockRejectedValue(
+      new LedewireError('slow down', 429, undefined, 'rate_limited', undefined, 30),
+    )
+    const res = await GET()
+    expect(res.status).toBe(429)
+    expect(res.headers.get('Retry-After')).toBe('30')
+    expect(await res.json()).toEqual({ error: 'slow down', type: 'rate_limited' })
+  })
 })
 
 function postPurchase(body: unknown) {
@@ -139,8 +149,22 @@ describe('POST /api/purchases', () => {
     expect(data.content_body).not.toContain('<script')
     expect(data.content_body).not.toContain('alert(1)')
     expect(data.content_body).not.toContain('onerror')
-    expect(data.content_body).toContain('<img src="x.png" />')
+    expect(data.content_body).toContain('<img src="x.png"')
     expect(data.content_body).toContain('rel="noopener noreferrer"')
+  })
+
+  it('keeps article images but loads them lazily without sending a Referer', async () => {
+    mockPurchasesCreate.mockResolvedValue(
+      makePurchase({
+        content: { ...makePurchase().content, content_type: 'html' },
+        content_body:
+          '<img src="https://img.example.com/a.png" alt="Reef" referrerpolicy="unsafe-url" loading="eager">',
+      }),
+    )
+    const data = await (await postPurchase({ content_id: 'c-1' })).json()
+    expect(data.content_body).toBe(
+      '<img src="https://img.example.com/a.png" alt="Reef" referrerpolicy="no-referrer" loading="lazy" />',
+    )
   })
 
   it('returns content_uri for a work hosted elsewhere', async () => {

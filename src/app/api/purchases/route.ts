@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
-import { AuthError, LedewireError } from '@ledewire/node'
 import { listItems } from '@/lib/list-items'
 import { ledewireErrorResponse } from '@/lib/route-errors'
 import sanitizeHtml from 'sanitize-html'
@@ -9,16 +8,21 @@ import type { Delivery } from '@/lib/purchase-delivery'
 
 /**
  * sanitize-html's defaults (no scripts, no on* handlers, no javascript: URLs),
- * plus article images; seller links can't reach back into this tab.
+ * plus article images; seller links can't reach back into this tab, and seller
+ * images load lazily without telling the image host which page showed them.
  */
 const ARTICLE_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img'],
   allowedAttributes: {
     ...sanitizeHtml.defaults.allowedAttributes,
     a: [...(sanitizeHtml.defaults.allowedAttributes.a ?? []), 'rel'],
-    img: ['src', 'alt', 'title', 'width', 'height'],
+    // referrerpolicy and loading are always overwritten by transformTags below.
+    img: ['src', 'alt', 'title', 'width', 'height', 'referrerpolicy', 'loading'],
   },
-  transformTags: { a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }) },
+  transformTags: {
+    a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }),
+    img: sanitizeHtml.simpleTransform('img', { referrerpolicy: 'no-referrer', loading: 'lazy' }),
+  },
 }
 
 export async function GET() {
@@ -30,12 +34,7 @@ export async function GET() {
     const purchases = listItems(await client.purchases.list())
     return NextResponse.json(purchases)
   } catch (err) {
-    if (err instanceof AuthError)
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
-    if (err instanceof LedewireError)
-      return NextResponse.json({ error: err.message }, { status: err.statusCode })
-    console.error('[purchases] unexpected error', err)
-    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
+    return ledewireErrorResponse(err, 'purchases GET')
   }
 }
 
