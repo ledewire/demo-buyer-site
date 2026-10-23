@@ -2,9 +2,10 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { formatDate } from '@/lib/format'
-import { getAllPublications } from '@/lib/publications'
+import { createBuyerClient } from '@/lib/ledewire'
 import ExportSelectionSummary from '@/components/ExportSelectionSummary'
-import { AuthError, LedewireError } from '@ledewire/node'
+import { AuthError, LedewireError, NotFoundError } from '@ledewire/node'
+import type { Publication } from '@ledewire/node'
 import WorksBrowser from './WorksBrowser'
 
 interface Props {
@@ -15,16 +16,23 @@ export default async function PublicationPage({ params }: Props) {
   await requireAuth()
   const { id } = await params
 
-  let publication
+  let publication: Publication | undefined
   try {
-    publication = (await getAllPublications()).find((p) => p.id === id)
+    const client = await createBuyerClient()
+    publication = await client.publications.get(id)
   } catch (err) {
     if (err instanceof AuthError) redirect('/login')
-    if (err instanceof LedewireError) {
+    // Checked before LedewireError, its base class: an unknown or unlisted id falls through to
+    // the 404 below.
+    if (err instanceof NotFoundError) {
+      publication = undefined
+    } else if (err instanceof LedewireError) {
       return <p className="text-red-600 text-sm">API error: {err.message}</p>
+    } else {
+      throw err
     }
-    throw err
   }
+  // Outside the try, so Next's 404 signal isn't caught by it.
   if (!publication) notFound()
 
   return (
