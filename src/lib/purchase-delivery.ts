@@ -9,4 +9,3 @@ export interface Delivery {
   content_body?: string
   content_uri?: string
 }
-
