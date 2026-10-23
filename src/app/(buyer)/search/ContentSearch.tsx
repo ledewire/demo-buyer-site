@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import type { ContentSearchResponse, ContentSearchResultWithPublication } from '@ledewire/node'
 import { formatCents } from '@/lib/format'
-import type { BoughtWork } from '@/lib/purchase-delivery'
 import { resultTitle, retryAfterSeconds } from '@/lib/search'
 import BuyConfirmation from './BuyConfirmation'
-import ArticleView from './ArticleView'
+import ArticleView, { type BoughtWork } from './ArticleView'
+import ErrorAlert from './ErrorAlert'
 
 interface Props {
   /** The query and max price (dollars) from the URL, as typed. */
@@ -139,14 +139,7 @@ export default function ContentSearch({
         </button>
       </form>
 
-      {rateLimited && (
-        <p
-          role="alert"
-          className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-sm px-3 py-2"
-        >
-          Too many searches — try again in {retryIn} s
-        </p>
-      )}
+      {rateLimited && <ErrorAlert>Too many searches — try again in {retryIn} s</ErrorAlert>}
 
       {partial && (
         <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-sm px-3 py-2">
@@ -171,14 +164,7 @@ export default function ContentSearch({
         </p>
       )}
 
-      {error && (
-        <p
-          role="alert"
-          className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-sm px-3 py-2"
-        >
-          {error}
-        </p>
-      )}
+      {error && <ErrorAlert>{error}</ErrorAlert>}
 
       {nextCursor && (
         <button

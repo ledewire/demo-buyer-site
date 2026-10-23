@@ -2,10 +2,16 @@
 
 import { useEffect } from 'react'
 import Markdown from 'react-markdown'
-import type { ContentSearchPublication } from '@ledewire/node'
-import type { BoughtWork, Delivery } from '@/lib/purchase-delivery'
+import type { ContentSearchPublication, ContentSearchResultWithPublication } from '@ledewire/node'
+import type { Delivery } from '@/lib/purchase-delivery'
 import { resultTitle } from '@/lib/search'
 import { useExportSelection } from '@/lib/export-selection'
+
+/** A work just bought: the search row it was bought from, and what was delivered. */
+export interface BoughtWork {
+  result: ContentSearchResultWithPublication
+  delivery: Delivery
+}
 
 interface Props {
   work: BoughtWork

@@ -1,5 +1,3 @@
-import type { ContentSearchResultWithPublication } from '@ledewire/node'
-
 /**
  * What `POST /api/purchases` returns: the bought work, delivered once.
  * `content_body` is plain text (never base64; HTML already sanitized) for
@@ -12,8 +10,3 @@ export interface Delivery {
   content_uri?: string
 }
 
-/** A work just bought: the search row it was bought from, and what was delivered. */
-export interface BoughtWork {
-  result: ContentSearchResultWithPublication
-  delivery: Delivery
-}
