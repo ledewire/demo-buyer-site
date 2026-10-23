@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ContentSearchResponse, ContentSearchResultWithPublication } from '@ledewire/node'
+import ExportSelectionSummary from '@/components/ExportSelectionSummary'
 import ContentSearch from './ContentSearch'
 
 function makeResult(
@@ -423,6 +424,109 @@ describe('ContentSearch', () => {
       await buy(user, { content_type: 'brokered', content_body: '# Abstract\n\n<i>x</i>Plain.' })
       expect(await screen.findByRole('heading', { name: 'Abstract' })).toBeInTheDocument()
       expect(container.querySelector('i')).toBeNull()
+    })
+  })
+
+  describe('sampling a work for a bulk licence', () => {
+    const URL = 'https://inc.com/ocean-heat'
+    const PUBLICATION = { id: 'pub-1', name: 'Inc.', bulk_licensable: true, topics: [] }
+    const DELIVERY = { content_type: 'brokered', content_body: 'Hot seas.' }
+
+    /** Renders the search with the page's Selection banner, as the search page does. */
+    function renderWithSummary(result: ContentSearchResultWithPublication) {
+      return render(
+        <>
+          <ExportSelectionSummary />
+          <ContentSearch q="ocean" maxPrice="" initialPage={page([result])} />
+        </>,
+      )
+    }
+
+    it('Add to selection puts the bought work in the Selection, which the banner counts', async () => {
+      const user = userEvent.setup()
+      renderWithSummary(
+        makeResult({ content_type: 'brokered', url: URL, publication: PUBLICATION }),
+      )
+      await buy(user, DELIVERY)
+      await screen.findByText('Hot seas.')
+      expect(screen.queryByText(/selected from/)).not.toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: 'Add to selection' }))
+
+      expect(JSON.parse(sessionStorage.getItem('lw_export_selection') ?? '[]')).toEqual([
+        { url: URL, publicationId: 'pub-1', publicationName: 'Inc.' },
+      ])
+      expect(screen.getByText('1 article selected from 1 publication')).toBeInTheDocument()
+    })
+
+    it('shows the work as added once it is in the Selection', async () => {
+      const user = userEvent.setup()
+      renderWithSummary(
+        makeResult({ content_type: 'brokered', url: URL, publication: PUBLICATION }),
+      )
+      await buy(user, DELIVERY)
+      await user.click(await screen.findByRole('button', { name: 'Add to selection' }))
+      expect(screen.getByRole('button', { name: 'Added to selection' })).toBeDisabled()
+      expect(screen.queryByRole('button', { name: 'Add to selection' })).not.toBeInTheDocument()
+    })
+
+    it('shows a work already in the Selection as added before any click', async () => {
+      sessionStorage.setItem(
+        'lw_export_selection',
+        JSON.stringify([{ url: URL, publicationId: 'pub-1', publicationName: 'Inc.' }]),
+      )
+      const user = userEvent.setup()
+      renderWithSummary(
+        makeResult({ content_type: 'brokered', url: URL, publication: PUBLICATION }),
+      )
+      await buy(user, DELIVERY)
+      expect(await screen.findByRole('button', { name: 'Added to selection' })).toBeDisabled()
+    })
+
+    it('a result from a Publication that isn’t bulk-licensable links to it but can’t be added', async () => {
+      const user = userEvent.setup()
+      renderWithSummary(
+        makeResult({
+          content_type: 'brokered',
+          url: URL,
+          publication: { ...PUBLICATION, bulk_licensable: false },
+        }),
+      )
+      await buy(user, DELIVERY)
+      await screen.findByText('Hot seas.')
+      expect(screen.getByRole('link', { name: 'Browse all from Inc.' })).toHaveAttribute(
+        'href',
+        '/catalog/pub-1',
+      )
+      expect(screen.queryByRole('button', { name: /to selection/ })).not.toBeInTheDocument()
+    })
+
+    it('a bulk-licensable result links to its Publication and says a bulk licence is charged again', async () => {
+      const user = userEvent.setup()
+      renderWithSummary(
+        makeResult({ content_type: 'brokered', url: URL, publication: PUBLICATION }),
+      )
+      await buy(user, DELIVERY)
+      await screen.findByRole('button', { name: 'Add to selection' })
+      expect(
+        screen.getByText(
+          'Licensing this work in bulk is a second delivery, charged separately from this purchase.',
+        ),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Browse all from Inc.' })).toHaveAttribute(
+        'href',
+        '/catalog/pub-1',
+      )
+    })
+
+    it('a LedeWire-native result offers neither Add to selection nor a Publication to browse', async () => {
+      const user = userEvent.setup()
+      renderWithSummary(makeResult({ url: 'https://dailyplanet.example/ocean', publication: null }))
+      await buy(user, { content_type: 'markdown', content_body: 'Hot seas.' })
+      await screen.findByText('Hot seas.')
+      expect(screen.queryByRole('button', { name: /to selection/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /Browse all/ })).not.toBeInTheDocument()
+      expect(screen.queryByText(/second delivery/)).not.toBeInTheDocument()
     })
   })
 })
