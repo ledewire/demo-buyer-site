@@ -18,3 +18,41 @@
     border-color: var(--color-gray-200, currentcolor);
   }
 }
+
+/* A bought article's body (search/ArticleView): markdown or sanitized HTML. */
+@layer components {
+  .article-body {
+    @apply text-sm text-gray-800 space-y-4 leading-relaxed;
+  }
+  .article-body h1 {
+    @apply text-2xl font-bold text-gray-900;
+  }
+  .article-body h2 {
+    @apply text-xl font-semibold text-gray-900;
+  }
+  .article-body h3,
+  .article-body h4 {
+    @apply text-lg font-semibold text-gray-900;
+  }
+  .article-body a {
+    @apply text-indigo-600 underline;
+  }
+  .article-body ul {
+    @apply list-disc pl-6 space-y-1;
+  }
+  .article-body ol {
+    @apply list-decimal pl-6 space-y-1;
+  }
+  .article-body blockquote {
+    @apply border-l-4 border-gray-200 pl-4 text-gray-600;
+  }
+  .article-body code {
+    @apply rounded-sm bg-gray-100 px-1 font-mono text-xs;
+  }
+  .article-body pre {
+    @apply overflow-x-auto rounded-md bg-gray-100 p-3;
+  }
+  .article-body img {
+    @apply max-w-full h-auto;
+  }
+}
