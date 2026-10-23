@@ -427,13 +427,24 @@ describe('ContentSearch', () => {
       expect(screen.getByRole('button', { name: 'Add 1 to selection' })).toBeEnabled()
     })
 
-    it('still buys a ticked result', async () => {
+    it('still buys a ticked result; once added from the article, it no longer counts', async () => {
       const user = userEvent.setup()
-      renderSearch({ initialPage: page([licensable('a', 'Volts')]) })
+      renderSearch({ initialPage: page([licensable('a', 'Volts'), licensable('b', 'Amps')]) })
       await user.click(screen.getByRole('checkbox', { name: 'Select Volts' }))
+
       mockFetchOnce(200, WALLET)
       await user.click(screen.getByRole('button', { name: 'Buy Volts' }))
-      expect(await screen.findByRole('dialog')).toHaveTextContent('Volts')
+      await screen.findByText('Wallet balance: $10.00')
+      mockFetchOnce(200, { content_type: 'markdown', content_body: 'Charged up.' })
+      await user.click(screen.getByRole('button', { name: 'Confirm purchase' }))
+      await screen.findByText('Charged up.')
+
+      await user.click(screen.getByRole('button', { name: 'Add to selection' }))
+      await user.click(screen.getByRole('button', { name: '← Back to results' }))
+
+      expect(screen.getByRole('checkbox', { name: 'Volts is in the selection' })).toBeChecked()
+      expect(addButton()).toHaveTextContent('Add 0 to selection')
+      expect(addButton()).toBeDisabled()
     })
   })
 })

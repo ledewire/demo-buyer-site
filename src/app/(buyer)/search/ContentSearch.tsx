@@ -51,10 +51,13 @@ export default function ContentSearch({
   // The work just bought, held only in memory: refreshing loses it.
   const [bought, setBought] = useState<BoughtWork | null>(null)
   const selection = useExportSelection()
-  // The works ticked for the Selection but not yet added to it, by URL.
+  // The works ticked for the Selection, by URL.
   const [ticked, setTicked] = useState<Map<string, SelectedWork>>(new Map())
+  // A ticked work can reach the Selection another way (the bought article's
+  // Add to selection), so count only those still to add.
+  const toAdd = [...ticked.values()].filter((w) => !selection.has(w.url))
 
-  function toggle(work: SelectedWork) {
+  function toggleTicked(work: SelectedWork) {
     setTicked((prev) => {
       const next = new Map(prev)
       if (!next.delete(work.url)) next.set(work.url, work)
@@ -63,7 +66,7 @@ export default function ContentSearch({
   }
 
   function addTicked() {
-    selection.addMany([...ticked.values()])
+    selection.addMany(toAdd)
     setTicked(new Map())
   }
 
@@ -115,6 +118,8 @@ export default function ContentSearch({
   }
 
   const noneLoaded = results !== null && results.length === 0
+  // Each result, with the work it would add to the Selection (null when it can't be one).
+  const rows = (results ?? []).map((result) => ({ result, work: selectableWork(result) }))
 
   // The results, cursor and filters stay in state underneath, so Back needs no new search.
   if (bought) return <ArticleView work={bought} onBack={() => setBought(null)} />
@@ -167,23 +172,22 @@ export default function ContentSearch({
         </p>
       )}
 
-      {results?.some((r) => selectableWork(r)) && (
+      {rows.some(({ work }) => work) && (
         <div className="flex items-center justify-end">
           <button
             type="button"
             onClick={addTicked}
-            disabled={ticked.size === 0}
+            disabled={toAdd.length === 0}
             className="px-3 py-1 rounded-md border border-indigo-600 text-sm font-medium text-indigo-700 bg-white hover:bg-indigo-50 disabled:opacity-50"
           >
-            Add {ticked.size} to selection
+            Add {toAdd.length} to selection
           </button>
         </div>
       )}
 
-      {results && results.length > 0 && (
+      {rows.length > 0 && (
         <ul className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-          {results.map((r) => {
-            const work = selectableWork(r)
+          {rows.map(({ result: r, work }) => {
             return (
               <ResultRow
                 key={r.id}
@@ -193,7 +197,7 @@ export default function ContentSearch({
                   work && {
                     inSelection: selection.has(work.url),
                     ticked: ticked.has(work.url),
-                    onToggle: () => toggle(work),
+                    onToggle: () => toggleTicked(work),
                   }
                 }
               />
