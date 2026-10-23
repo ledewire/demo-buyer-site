@@ -19,6 +19,13 @@ describe('NavBar', () => {
     expect(screen.getByRole('link', { name: 'Exports' })).toBeInTheDocument()
   })
 
+  it('lists Search, linking to /search, right after Dashboard', () => {
+    render(<NavBar />)
+    expect(screen.getByRole('link', { name: 'Search' })).toHaveAttribute('href', '/search')
+    const labels = screen.getAllByRole('link').map((l) => l.textContent)
+    expect(labels.indexOf('Search')).toBe(labels.indexOf('Dashboard') + 1)
+  })
+
   it('hides the Company link by default', () => {
     render(<NavBar />)
     expect(screen.queryByRole('link', { name: 'Company' })).not.toBeInTheDocument()
