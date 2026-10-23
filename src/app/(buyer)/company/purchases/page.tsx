@@ -10,7 +10,7 @@ import CompanyTabs from '../CompanyTabs'
 import NotInCompany from '../NotInCompany'
 import ActivitySnapshot from './ActivitySnapshot'
 import CompanyPurchasesTable from './CompanyPurchasesTable'
-import Pagination from './Pagination'
+import Pagination from '@/components/Pagination'
 import { parseFilters, type Filters, type SearchParams } from './filters'
 
 const PER_PAGE = 25
