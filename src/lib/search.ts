@@ -53,8 +53,9 @@ export function resultTitle(result: { title: string }): string {
 }
 
 /**
- * Who a search result comes from. A brokered work's `store_name` is always `LedeWire`, which
- * sells it, so name its Publication instead, or its site when it is on no listed Publication.
+ * Who a search result comes from: its Publication when it has one, else its store. A brokered
+ * work's `store_name` is always `LedeWire`, which sells it, so one on no listed Publication is
+ * named by its site instead.
  */
 export function resultSource(result: ContentSearchResultWithPublication): string {
   if (result.publication) return result.publication.name
