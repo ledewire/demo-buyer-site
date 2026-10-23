@@ -7,7 +7,13 @@ function makePurchase(overrides: Partial<PurchaseResponse> = {}): PurchaseRespon
   return {
     id: 'p-1',
     content_id: 'c-1',
-    content: { id: 'c-1', content_type: 'markdown', title: 'Article Title' },
+    content: {
+      id: 'c-1',
+      content_type: 'markdown',
+      title: 'Article Title',
+      resource_url: null,
+      publication: null,
+    },
     buyer_id: 'b-1',
     buyer: { id: 'b-1', name: 'Alice' },
     seller_id: 's-1',
@@ -48,12 +54,24 @@ describe('PurchasesList', () => {
           makePurchase({
             id: 'p-1',
             content_id: 'c-1',
-            content: { id: 'c-1', content_type: 'markdown', title: 'Article 1' },
+            content: {
+              id: 'c-1',
+              content_type: 'markdown',
+              title: 'Article 1',
+              resource_url: null,
+              publication: null,
+            },
           }),
           makePurchase({
             id: 'p-2',
             content_id: 'c-2',
-            content: { id: 'c-2', content_type: 'markdown', title: 'Article 2' },
+            content: {
+              id: 'c-2',
+              content_type: 'markdown',
+              title: 'Article 2',
+              resource_url: null,
+              publication: null,
+            },
           }),
         ]}
       />,
