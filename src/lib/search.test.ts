@@ -1,6 +1,32 @@
 import { describe, it, expect } from 'vitest'
 import { makeResult } from '@/test/search-fixtures'
-import { parseSearchFilters, resultSource, retryAfterSeconds, searchQueryString } from './search'
+import {
+  parseSearchFilters,
+  resultSource,
+  retryAfterSeconds,
+  searchQueryString,
+  selectableWork,
+} from './search'
+
+describe('selectableWork', () => {
+  const pub = { id: 'p-1', name: 'Futurism', bulk_licensable: true, topics: [] }
+
+  it('is the work, by URL and Publication, for a bulk-licensable result with a web URL', () => {
+    expect(selectableWork(makeResult({ url: 'https://futurism.com/a', publication: pub }))).toEqual(
+      { url: 'https://futurism.com/a', publicationId: 'p-1', publicationName: 'Futurism' },
+    )
+  })
+
+  it('is null without a Publication, one that isn’t bulk-licensable, or a web URL', () => {
+    const url = 'https://futurism.com/a'
+    expect(selectableWork(makeResult({ url, publication: null }))).toBeNull()
+    expect(
+      selectableWork(makeResult({ url, publication: { ...pub, bulk_licensable: false } })),
+    ).toBeNull()
+    expect(selectableWork(makeResult({ url: null, publication: pub }))).toBeNull()
+    expect(selectableWork(makeResult({ url: 'javascript:x', publication: pub }))).toBeNull()
+  })
+})
 
 describe('parseSearchFilters', () => {
   it('is null with no query to search for', () => {

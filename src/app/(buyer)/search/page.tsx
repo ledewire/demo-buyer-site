@@ -46,7 +46,7 @@ export default async function SearchPage({ searchParams }: Props) {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Search</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Search articles across every store and set the most you&apos;d pay for one.
+          Search for content, optionally limiting the price.
         </p>
       </div>
 

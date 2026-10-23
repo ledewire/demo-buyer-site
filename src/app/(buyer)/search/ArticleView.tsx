@@ -5,8 +5,8 @@ import Link from 'next/link'
 import Markdown from 'react-markdown'
 import type { ContentSearchPublication, ContentSearchResultWithPublication } from '@ledewire/node'
 import type { Delivery } from '@/lib/purchase-delivery'
-import { resultTitle } from '@/lib/search'
-import { useExportSelection } from '@/lib/export-selection'
+import { resultTitle, selectableWork } from '@/lib/search'
+import { type SelectedWork, useExportSelection } from '@/lib/export-selection'
 
 /** A work just bought: the search row it was bought from, and what was delivered. */
 export interface BoughtWork {
@@ -26,7 +26,7 @@ export const LEAVE_WARNING = "You won't be able to view this again without buyin
  * time, so leaving the page loses it — warn before that happens.
  */
 export default function ArticleView({ work: { result, delivery }, onBack }: Props) {
-  const { url, publication } = result
+  const { publication } = result
   useEffect(() => {
     function warn(e: BeforeUnloadEvent) {
       e.preventDefault()
@@ -64,7 +64,9 @@ export default function ArticleView({ work: { result, delivery }, onBack }: Prop
         <p className="text-xs text-gray-500">{LEAVE_WARNING}</p>
         <Body delivery={delivery} />
       </article>
-      {publication && <PublicationActions url={url} publication={publication} />}
+      {publication && (
+        <PublicationActions work={selectableWork(result)} publication={publication} />
+      )}
     </div>
   )
 }
@@ -89,28 +91,22 @@ function leavesInPlace(e: MouseEvent): boolean {
  * source of `bulk_licensable` — the purchase response doesn't carry it.
  */
 function PublicationActions({
-  url,
+  work,
   publication,
 }: {
-  url: string | null | undefined
+  /** The work as the Selection takes it; null when it can't go in one. */
+  work: SelectedWork | null
   publication: ContentSearchPublication
 }) {
   const selection = useExportSelection()
-  const canAdd = publication.bulk_licensable && !!url
-  const added = !!url && selection.has(url)
+  const added = !!work && selection.has(work.url)
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
-      {canAdd && (
+      {work && (
         <div className="space-y-1">
           <button
             type="button"
-            onClick={() =>
-              selection.add({
-                url,
-                publicationId: publication.id,
-                publicationName: publication.name,
-              })
-            }
+            onClick={() => selection.add(work)}
             disabled={added}
             className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
           >
