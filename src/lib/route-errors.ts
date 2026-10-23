@@ -13,8 +13,15 @@ export function ledewireErrorResponse(err: unknown, tag: string): NextResponse {
       { error: err.message, type: 'daily_spend_cap_reached', resets_at: err.resetsAt },
       { status: 402 },
     )
-  if (err instanceof LedewireError)
-    return NextResponse.json({ error: err.message, type: err.type }, { status: err.statusCode })
+  if (err instanceof LedewireError) {
+    // A rate limit says when to try again; pass that on so the browser can count down.
+    const headers =
+      err.retryAfter === undefined ? undefined : { 'Retry-After': String(err.retryAfter) }
+    return NextResponse.json(
+      { error: err.message, type: err.type },
+      { status: err.statusCode, headers },
+    )
+  }
   console.error(`[${tag}] unexpected error`, err)
   return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 })
 }
