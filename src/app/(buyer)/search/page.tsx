@@ -3,7 +3,7 @@ import { AuthError, LedewireError } from '@ledewire/node'
 import type { ContentSearchResponse } from '@ledewire/node'
 import { requireAuth } from '@/lib/auth'
 import { createBuyerClient } from '@/lib/ledewire'
-import { DEFAULT_RETRY_AFTER_S, parseSearchFilters } from '@/lib/search'
+import { parseSearchFilters, retryAfterSeconds } from '@/lib/search'
 import ExportSelectionSummary from '@/components/ExportSelectionSummary'
 import ContentSearch from './ContentSearch'
 
@@ -28,7 +28,7 @@ async function searchFirstPage(q: string, maxPrice: string): Promise<FirstPage> 
   } catch (err) {
     if (err instanceof AuthError) redirect('/login')
     if (err instanceof LedewireError) {
-      if (err.statusCode === 429) return { retryAfter: err.retryAfter ?? DEFAULT_RETRY_AFTER_S }
+      if (err.statusCode === 429) return { retryAfter: retryAfterSeconds(err.retryAfter) }
       return { error: `API error: ${err.message}` }
     }
     throw err

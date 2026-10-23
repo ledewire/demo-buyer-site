@@ -92,6 +92,15 @@ describe('SearchPage', () => {
     expect(screen.getByRole('searchbox', { name: 'Search' })).toBeInTheDocument()
     expect(searchButton()).toBeDisabled()
     expect(screen.queryByText('Nothing matched')).not.toBeInTheDocument()
+    expect(screen.queryByRole('list')).not.toBeInTheDocument()
+  })
+
+  it('a 429 with no usable wait still shows a wait, of a minute', async () => {
+    mockContent.search.mockRejectedValue(
+      new LedewireError('slow down', 429, undefined, undefined, undefined, 0) as never,
+    )
+    await renderPage({ q: 'x' })
+    expect(screen.getByText('Too many searches — try again in 60 s')).toBeInTheDocument()
   })
 
   it('shows another API error inline', async () => {
