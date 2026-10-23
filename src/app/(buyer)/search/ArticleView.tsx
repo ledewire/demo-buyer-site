@@ -131,8 +131,8 @@ function PublicationActions({
   )
 }
 
-/** A bought article's body, markdown or sanitized HTML, set with Tailwind Typography. */
-const ARTICLE_TYPOGRAPHY = 'prose prose-gray prose-a:text-indigo-600'
+/** The classes that set a bought article's body (markdown or sanitized HTML) as prose. */
+const ARTICLE_BODY_CLASSES = 'prose prose-gray prose-a:text-indigo-600'
 
 function Body({ delivery }: { delivery: Delivery }) {
   const { content_type, content_body, content_uri } = delivery
@@ -140,12 +140,12 @@ function Body({ delivery }: { delivery: Delivery }) {
     if (content_type === 'html')
       // POST /api/purchases has already run this through sanitize-html.
       return (
-        <div className={ARTICLE_TYPOGRAPHY} dangerouslySetInnerHTML={{ __html: content_body }} />
+        <div className={ARTICLE_BODY_CLASSES} dangerouslySetInnerHTML={{ __html: content_body }} />
       )
     // Markdown, and brokered bodies (whose format the API doesn't pin down;
     // plain text reads the same). No rehype-raw: raw HTML is dropped, not rendered.
     return (
-      <div className={ARTICLE_TYPOGRAPHY}>
+      <div className={ARTICLE_BODY_CLASSES}>
         <Markdown skipHtml>{content_body}</Markdown>
       </div>
     )
