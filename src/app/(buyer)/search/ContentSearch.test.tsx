@@ -331,4 +331,109 @@ describe('ContentSearch', () => {
       expect(setItem.mock.calls.some(([, v]) => String(v).includes('Secret seas.'))).toBe(false)
     })
   })
+
+  describe('selecting results for a bulk export', () => {
+    const FUTURISM = { id: 'p-1', name: 'Futurism', bulk_licensable: true, topics: [] }
+
+    /** A brokered result from bulk-licensable Futurism, at `https://futurism.com/<id>`. */
+    function licensable(id: string, title: string) {
+      return makeResult({
+        id,
+        title,
+        content_type: 'brokered',
+        url: `https://futurism.com/${id}`,
+        publication: FUTURISM,
+      })
+    }
+
+    const selected = () => JSON.parse(sessionStorage.getItem('lw_export_selection') ?? '[]')
+    const addButton = () => screen.getByRole('button', { name: /^Add \d+ to selection$/ })
+
+    it('offers a checkbox only on a bulk-licensable result with a web URL', () => {
+      renderSearch({
+        initialPage: page([
+          licensable('a', 'Volts'),
+          makeResult({ id: 'store', title: 'Store work' }),
+          makeResult({
+            id: 'nb',
+            title: 'Not licensable',
+            content_type: 'brokered',
+            url: 'https://inc.com/x',
+            publication: { ...FUTURISM, id: 'p-2', name: 'Inc', bulk_licensable: false },
+          }),
+          makeResult({ id: 'nu', title: 'No URL', publication: FUTURISM, url: null }),
+        ]),
+      })
+      expect(screen.getByRole('checkbox', { name: 'Select Volts' })).toBeInTheDocument()
+      expect(screen.getAllByRole('checkbox')).toHaveLength(1)
+    })
+
+    it('adds every ticked result to the Selection, without buying, then clears the ticks', async () => {
+      const user = userEvent.setup()
+      renderSearch({
+        initialPage: page([
+          licensable('a', 'Volts'),
+          licensable('b', 'Amps'),
+          licensable('c', 'Ohms'),
+        ]),
+      })
+      expect(addButton()).toBeDisabled()
+
+      await user.click(screen.getByRole('checkbox', { name: 'Select Volts' }))
+      await user.click(screen.getByRole('checkbox', { name: 'Select Ohms' }))
+      await user.click(screen.getByRole('button', { name: 'Add 2 to selection' }))
+
+      expect(selected()).toEqual([
+        { url: 'https://futurism.com/a', publicationId: 'p-1', publicationName: 'Futurism' },
+        { url: 'https://futurism.com/c', publicationId: 'p-1', publicationName: 'Futurism' },
+      ])
+      expect(global.fetch).not.toHaveBeenCalled()
+      expect(addButton()).toBeDisabled()
+      expect(screen.getByRole('checkbox', { name: 'Select Amps' })).not.toBeChecked()
+    })
+
+    it('shows a result already in the Selection as added, and never adds it twice', async () => {
+      const user = userEvent.setup()
+      const volts = {
+        url: 'https://futurism.com/a',
+        publicationId: 'p-1',
+        publicationName: 'Futurism',
+      }
+      sessionStorage.setItem('lw_export_selection', JSON.stringify([volts]))
+      renderSearch({ initialPage: page([licensable('a', 'Volts'), licensable('b', 'Amps')]) })
+
+      const added = await screen.findByRole('checkbox', { name: 'Volts is in the selection' })
+      expect(added).toBeChecked()
+      expect(added).toBeDisabled()
+
+      await user.click(screen.getByRole('checkbox', { name: 'Select Amps' }))
+      await user.click(screen.getByRole('button', { name: 'Add 1 to selection' }))
+      expect(selected().map((w: { url: string }) => w.url)).toEqual([
+        'https://futurism.com/a',
+        'https://futurism.com/b',
+      ])
+    })
+
+    it('keeps ticks across Load more', async () => {
+      const user = userEvent.setup()
+      renderSearch({ initialPage: page([licensable('a', 'Volts')], { next_cursor: 'cur-2' }) })
+      await user.click(screen.getByRole('checkbox', { name: 'Select Volts' }))
+
+      mockFetchOnce(200, page([licensable('b', 'Amps')]))
+      await user.click(loadMore())
+      await screen.findByText('Amps')
+
+      expect(screen.getByRole('checkbox', { name: 'Select Volts' })).toBeChecked()
+      expect(screen.getByRole('button', { name: 'Add 1 to selection' })).toBeEnabled()
+    })
+
+    it('still buys a ticked result', async () => {
+      const user = userEvent.setup()
+      renderSearch({ initialPage: page([licensable('a', 'Volts')]) })
+      await user.click(screen.getByRole('checkbox', { name: 'Select Volts' }))
+      mockFetchOnce(200, WALLET)
+      await user.click(screen.getByRole('button', { name: 'Buy Volts' }))
+      expect(await screen.findByRole('dialog')).toHaveTextContent('Volts')
+    })
+  })
 })

@@ -3,7 +3,14 @@
 import { useEffect, useState } from 'react'
 import type { ContentSearchResponse, ContentSearchResultWithPublication } from '@ledewire/node'
 import { formatCents } from '@/lib/format'
-import { resultSource, resultTitle, retryAfterSeconds, searchQueryString } from '@/lib/search'
+import { type SelectedWork, useExportSelection } from '@/lib/export-selection'
+import {
+  resultSource,
+  resultTitle,
+  retryAfterSeconds,
+  searchQueryString,
+  selectableWork,
+} from '@/lib/search'
 import BuyConfirmation from './BuyConfirmation'
 import ArticleView, { type BoughtWork } from './ArticleView'
 import ErrorAlert from './ErrorAlert'
@@ -43,6 +50,22 @@ export default function ContentSearch({
   const [confirming, setConfirming] = useState<ContentSearchResultWithPublication | null>(null)
   // The work just bought, held only in memory: refreshing loses it.
   const [bought, setBought] = useState<BoughtWork | null>(null)
+  const selection = useExportSelection()
+  // The works ticked for the Selection but not yet added to it, by URL.
+  const [ticked, setTicked] = useState<Map<string, SelectedWork>>(new Map())
+
+  function toggle(work: SelectedWork) {
+    setTicked((prev) => {
+      const next = new Map(prev)
+      if (!next.delete(work.url)) next.set(work.url, work)
+      return next
+    })
+  }
+
+  function addTicked() {
+    selection.addMany([...ticked.values()])
+    setTicked(new Map())
+  }
 
   useEffect(() => {
     if (!rateLimited) return
@@ -144,11 +167,38 @@ export default function ContentSearch({
         </p>
       )}
 
+      {results?.some((r) => selectableWork(r)) && (
+        <div className="flex items-center justify-end">
+          <button
+            type="button"
+            onClick={addTicked}
+            disabled={ticked.size === 0}
+            className="px-3 py-1 rounded-md border border-indigo-600 text-sm font-medium text-indigo-700 bg-white hover:bg-indigo-50 disabled:opacity-50"
+          >
+            Add {ticked.size} to selection
+          </button>
+        </div>
+      )}
+
       {results && results.length > 0 && (
         <ul className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-          {results.map((r) => (
-            <ResultRow key={r.id} result={r} onBuy={() => setConfirming(r)} />
-          ))}
+          {results.map((r) => {
+            const work = selectableWork(r)
+            return (
+              <ResultRow
+                key={r.id}
+                result={r}
+                onBuy={() => setConfirming(r)}
+                checkbox={
+                  work && {
+                    inSelection: selection.has(work.url),
+                    ticked: ticked.has(work.url),
+                    onToggle: () => toggle(work),
+                  }
+                }
+              />
+            )
+          })}
         </ul>
       )}
 
@@ -188,18 +238,40 @@ export default function ContentSearch({
   )
 }
 
+/** A result's checkbox for the Selection: whether it is already in it, or ticked to be added. */
+interface SelectionCheckbox {
+  inSelection: boolean
+  ticked: boolean
+  onToggle: () => void
+}
+
 function ResultRow({
   result,
   onBuy,
+  checkbox,
 }: {
   result: ContentSearchResultWithPublication
   onBuy: () => void
+  /** Null for a result that can't go in the Selection, which gets no checkbox. */
+  checkbox: SelectionCheckbox | null
 }) {
   const title = resultTitle(result)
   return (
     <li className="px-4 py-3 space-y-1">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-medium text-gray-900">{title}</p>
+        <div className="flex items-baseline gap-3">
+          {checkbox && (
+            <input
+              type="checkbox"
+              aria-label={checkbox.inSelection ? `${title} is in the selection` : `Select ${title}`}
+              checked={checkbox.inSelection || checkbox.ticked}
+              disabled={checkbox.inSelection}
+              onChange={checkbox.onToggle}
+              className="rounded-sm border-gray-300 text-indigo-600 disabled:opacity-40"
+            />
+          )}
+          <p className="text-sm font-medium text-gray-900">{title}</p>
+        </div>
         <div className="flex items-center gap-3">
           <span className="text-sm font-medium text-gray-900">
             {formatCents(result.price_cents)}

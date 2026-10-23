@@ -1,6 +1,7 @@
 import type { BuyerContentSearchRequest, ContentSearchResultWithPublication } from '@ledewire/node'
 import { parseCapCents } from './spend-cap'
 import { isWebUrl } from './web-url'
+import type { SelectedWork } from './export-selection'
 
 /** The filters a search was run with; Load more must send the same ones with its cursor. */
 export type SearchFilters = Pick<BuyerContentSearchRequest, 'max_price_cents'> & { query: string }
@@ -63,4 +64,14 @@ export function resultSource(result: ContentSearchResultWithPublication): string
     return new URL(result.url).hostname.replace(/^www\./, '')
   }
   return result.store_name
+}
+
+/**
+ * A search result as a work for the bulk-export Selection, or null when it can't be one: only a
+ * work with a web URL, from a Publication that licenses in bulk, can come back in an export.
+ */
+export function selectableWork(result: ContentSearchResultWithPublication): SelectedWork | null {
+  const { publication, url } = result
+  if (!publication?.bulk_licensable || !isWebUrl(url)) return null
+  return { url, publicationId: publication.id, publicationName: publication.name }
 }
