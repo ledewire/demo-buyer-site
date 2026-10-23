@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ContentSearchResultWithPublication } from '@ledewire/node'
 import ExportSelectionSummary from '@/components/ExportSelectionSummary'
@@ -73,6 +73,83 @@ describe('ArticleView', () => {
 
     unmount()
     expect(remove).toHaveBeenCalledWith('beforeunload', handler)
+  })
+
+  describe('leaving within the app', () => {
+    const WARNING = "You won't be able to view this again without buying it again."
+    const DELIVERY = { content_type: 'markdown', content_body: 'Hot seas.' }
+
+    it('Back to results warns first, and goes back once the buyer accepts', async () => {
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+      const { onBack } = renderArticle(DELIVERY)
+      await userEvent.click(screen.getByRole('button', { name: '← Back to results' }))
+      expect(confirm).toHaveBeenCalledWith(WARNING)
+      expect(onBack).toHaveBeenCalled()
+    })
+
+    it('Back to results stays on the article when the buyer declines', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(false)
+      const { onBack } = renderArticle(DELIVERY)
+      await userEvent.click(screen.getByRole('button', { name: '← Back to results' }))
+      expect(onBack).not.toHaveBeenCalled()
+      expect(screen.getByText('Hot seas.')).toBeInTheDocument()
+    })
+
+    /**
+     * Renders the article beside an in-app link (as the NavBar's are) and clicks it,
+     * returning whether the click was cancelled before the link could act on it.
+     */
+    function clickInAppLink(href = '/wallet', attrs: Record<string, string> = {}) {
+      let cancelled: boolean | undefined
+      render(
+        <a
+          href={href}
+          {...attrs}
+          onClick={(e) => {
+            cancelled = e.defaultPrevented
+            e.preventDefault() // jsdom can't navigate
+          }}
+        >
+          Elsewhere
+        </a>,
+      )
+      renderArticle(DELIVERY)
+      fireEvent.click(screen.getByRole('link', { name: 'Elsewhere' }))
+      return cancelled
+    }
+
+    it('an in-app link warns first and is cancelled when the buyer declines', () => {
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+      expect(clickInAppLink()).toBe(true)
+      expect(confirm).toHaveBeenCalledWith(WARNING)
+    })
+
+    it('an in-app link goes ahead when the buyer accepts', () => {
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+      expect(clickInAppLink()).toBe(false)
+      expect(confirm).toHaveBeenCalledWith(WARNING)
+    })
+
+    it.each([
+      ['another site', 'https://elsewhere.example/page', {}],
+      ['a new tab', '/wallet', { target: '_blank' }],
+    ])('a link to %s is left alone: it doesn’t drop the article in place', (_, href, attrs) => {
+      const confirm = vi.spyOn(window, 'confirm')
+      expect(clickInAppLink(href, attrs)).toBe(false)
+      expect(confirm).not.toHaveBeenCalled()
+    })
+
+    it('stops guarding links once the article is gone', () => {
+      const confirm = vi.spyOn(window, 'confirm')
+      render(
+        <a href="/wallet" onClick={(e) => e.preventDefault()}>
+          Elsewhere
+        </a>,
+      )
+      renderArticle(DELIVERY).unmount()
+      fireEvent.click(screen.getByRole('link', { name: 'Elsewhere' }))
+      expect(confirm).not.toHaveBeenCalled()
+    })
   })
 
   describe('sampling a work for a bulk licence', () => {

@@ -32,6 +32,8 @@ describe('ContentSearch', () => {
     vi.restoreAllMocks()
     sessionStorage.clear()
     global.fetch = vi.fn()
+    // Leaving a bought article asks first; these flows accept.
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
   })
 
   afterEach(() => {

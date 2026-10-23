@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import Link from 'next/link'
 import Markdown from 'react-markdown'
 import type { ContentSearchPublication, ContentSearchResultWithPublication } from '@ledewire/node'
 import type { Delivery } from '@/lib/purchase-delivery'
@@ -33,15 +34,27 @@ export default function ArticleView({ work: { result, delivery }, onBack }: Prop
       e.returnValue = LEAVE_WARNING
       return LEAVE_WARNING
     }
+    // Client-side navigation (next/link) doesn't unload the page, so beforeunload
+    // never fires for it: ask first, ahead of the link's own handler (capture phase).
+    function confirmInAppLink(e: MouseEvent) {
+      if (!leavesInPlace(e)) return
+      if (!window.confirm(LEAVE_WARNING)) e.preventDefault()
+    }
     window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
+    document.addEventListener('click', confirmInAppLink, true)
+    return () => {
+      window.removeEventListener('beforeunload', warn)
+      document.removeEventListener('click', confirmInAppLink, true)
+    }
   }, [])
 
   return (
     <div className="space-y-4">
       <button
         type="button"
-        onClick={onBack}
+        onClick={() => {
+          if (window.confirm(LEAVE_WARNING)) onBack()
+        }}
         className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
       >
         ← Back to results
@@ -54,6 +67,20 @@ export default function ArticleView({ work: { result, delivery }, onBack }: Prop
       {publication && <PublicationActions url={url} publication={publication} />}
     </div>
   )
+}
+
+/**
+ * Whether a click follows a same-origin link in this tab, replacing the article
+ * in place. A new tab, a download or another site leaves it on screen, or (for
+ * another site) is warned about by beforeunload.
+ */
+function leavesInPlace(e: MouseEvent): boolean {
+  if (e.defaultPrevented || e.button !== 0) return false
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false
+  const link = e.target instanceof Element ? e.target.closest('a[href]') : null
+  if (!(link instanceof HTMLAnchorElement)) return false
+  if ((link.target && link.target !== '_self') || link.hasAttribute('download')) return false
+  return link.origin === window.location.origin
 }
 
 /**
@@ -94,14 +121,12 @@ function PublicationActions({
           </p>
         </div>
       )}
-      {/* A full page load, not <Link>: client-side navigation skips beforeunload,
-          so it would drop the bought article without the leave warning. */}
-      <a
+      <Link
         href={`/catalog/${encodeURIComponent(publication.id)}`}
         className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
       >
         Browse all from <em>{publication.name}</em>
-      </a>
+      </Link>
     </div>
   )
 }
