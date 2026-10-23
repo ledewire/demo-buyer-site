@@ -379,6 +379,7 @@ describe('ContentSearch', () => {
         name: "Not licensable can't be added: Inc doesn't license in bulk",
       })
       expect(inc).toBeDisabled()
+      expect(inc.parentElement).toHaveAttribute('title', "Inc doesn't license in bulk")
 
       await user.click(store)
       await user.click(inc)

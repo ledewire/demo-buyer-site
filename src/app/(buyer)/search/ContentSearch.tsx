@@ -273,15 +273,16 @@ function ResultRow({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="flex items-baseline gap-3">
           {'unavailable' in checkbox ? (
-            // A disabled input gets no hover events, so the tooltip sits on a wrapper.
-            <span title={checkbox.unavailable} className="cursor-not-allowed">
+            // Some browsers drop hover on a disabled input, so it takes no pointer events and
+            // the wrapper, which carries the tooltip, is what the pointer is over.
+            <span title={checkbox.unavailable} className="inline-flex cursor-not-allowed">
               <input
                 type="checkbox"
                 aria-label={`${title} can't be added: ${checkbox.unavailable}`}
                 checked={false}
                 disabled
                 readOnly
-                className={CHECKBOX_CLASSES}
+                className={`${CHECKBOX_CLASSES} pointer-events-none`}
               />
             </span>
           ) : (

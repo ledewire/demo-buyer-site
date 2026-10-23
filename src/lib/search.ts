@@ -75,16 +75,16 @@ export type Selectability = { work: SelectedWork; reason: null } | { work: null;
  */
 export function selectability(result: ContentSearchResultWithPublication): Selectability {
   const { publication, url } = result
-  const no = (reason: string): Selectability => ({ work: null, reason })
+  const cannot = (reason: string): Selectability => ({ work: null, reason })
   if (!publication) {
-    return no(
+    return cannot(
       result.content_type === 'brokered'
         ? "From a site that isn't a listed Publication"
         : 'Sold by a LedeWire store, not a Publication',
     )
   }
-  if (!publication.bulk_licensable) return no(`${publication.name} doesn't license in bulk`)
-  if (!isWebUrl(url)) return no('Has no web link')
+  if (!publication.bulk_licensable) return cannot(`${publication.name} doesn't license in bulk`)
+  if (!isWebUrl(url)) return cannot('Has no web link')
   return {
     work: { url, publicationId: publication.id, publicationName: publication.name },
     reason: null,
