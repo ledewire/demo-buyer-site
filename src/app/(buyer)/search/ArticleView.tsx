@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect } from 'react'
+import Link from 'next/link'
 import Markdown from 'react-markdown'
+import type { ContentSearchPublication } from '@ledewire/node'
 import type { BoughtWork, Delivery } from '@/lib/purchase-delivery'
 import { resultTitle } from '@/lib/search'
+import { useExportSelection } from '@/lib/export-selection'
 
 interface Props {
   work: BoughtWork
@@ -17,6 +20,7 @@ export const LEAVE_WARNING = "You won't be able to view this again without buyin
  * time, so leaving the page loses it — warn before that happens.
  */
 export default function ArticleView({ work: { result, delivery }, onBack }: Props) {
+  const { url, publication } = result
   useEffect(() => {
     function warn(e: BeforeUnloadEvent) {
       e.preventDefault()
@@ -42,6 +46,55 @@ export default function ArticleView({ work: { result, delivery }, onBack }: Prop
         <p className="text-xs text-gray-500">{LEAVE_WARNING}</p>
         <Body delivery={delivery} />
       </article>
+      {publication && <PublicationActions url={url} publication={publication} />}
+    </div>
+  )
+}
+
+/**
+ * What a buyer sampling a brokered work can do next: add it to the Selection
+ * for a bulk licence, or browse its Publication. The search row is the only
+ * source of `bulk_licensable` — the purchase response doesn't carry it.
+ */
+function PublicationActions({
+  url,
+  publication,
+}: {
+  url: string | null | undefined
+  publication: ContentSearchPublication
+}) {
+  const selection = useExportSelection()
+  const canAdd = publication.bulk_licensable && !!url
+  const added = !!url && selection.has(url)
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      {canAdd && (
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={() =>
+              selection.add({
+                url,
+                publicationId: publication.id,
+                publicationName: publication.name,
+              })
+            }
+            disabled={added}
+            className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {added ? 'Added to selection' : 'Add to selection'}
+          </button>
+          <p className="text-xs text-gray-500">
+            Licensing this work in bulk is a second delivery, charged separately from this purchase.
+          </p>
+        </div>
+      )}
+      <Link
+        href={`/catalog/${encodeURIComponent(publication.id)}`}
+        className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+      >
+        Browse all from <em>{publication.name}</em>
+      </Link>
     </div>
   )
 }
