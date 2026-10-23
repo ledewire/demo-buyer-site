@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { NextRequest } from 'next/server'
-import { middleware } from './middleware'
+import { config, middleware } from './middleware'
 
 function visit(path: string, cookie?: string) {
   return middleware(
@@ -13,6 +13,10 @@ describe('middleware', () => {
     const res = visit('/company/members')
     expect(res.status).toBe(307)
     expect(new URL(res.headers.get('location') ?? '').pathname).toBe('/login')
+  })
+
+  it('guards Search: the matcher runs the middleware on /search', () => {
+    expect(config.matcher).toContain('/search/:path*')
   })
 
   it('lets a signed-in buyer through', () => {
