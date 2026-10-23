@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import type { ContentSearchResponse, ContentSearchResultWithPublication } from '@ledewire/node'
 import { formatCents } from '@/lib/format'
 import { retryAfterSeconds } from '@/lib/search'
+import BuyConfirmation, { type Delivery } from './BuyConfirmation'
+import ArticleView from './ArticleView'
 
 interface Props {
   /** The query and max price (dollars) from the URL, as typed. */
@@ -36,6 +38,13 @@ export default function ContentSearch({
   // Seconds left before searching again is allowed, after a 429.
   const [retryIn, setRetryIn] = useState(initialRetryAfter ?? 0)
   const rateLimited = retryIn > 0
+  // The result whose Buy confirmation is open.
+  const [buying, setBuying] = useState<ContentSearchResultWithPublication | null>(null)
+  // The work just bought, held only in memory: refreshing loses it.
+  const [bought, setBought] = useState<{
+    result: ContentSearchResultWithPublication
+    delivery: Delivery
+  } | null>(null)
 
   useEffect(() => {
     if (!rateLimited) return
@@ -87,6 +96,16 @@ export default function ContentSearch({
   }
 
   const noneLoaded = results !== null && results.length === 0
+
+  // The results, cursor and filters stay in state underneath, so Back needs no new search.
+  if (bought)
+    return (
+      <ArticleView
+        result={bought.result}
+        delivery={bought.delivery}
+        onBack={() => setBought(null)}
+      />
+    )
 
   return (
     <div className="space-y-4">
@@ -146,7 +165,7 @@ export default function ContentSearch({
       {results && results.length > 0 && (
         <ul className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
           {results.map((r) => (
-            <ResultRow key={r.id} result={r} />
+            <ResultRow key={r.id} result={r} onBuy={() => setBuying(r)} />
           ))}
         </ul>
       )}
@@ -179,16 +198,46 @@ export default function ContentSearch({
           {loading ? 'Loading…' : 'Load more'}
         </button>
       )}
+
+      {buying && (
+        <BuyConfirmation
+          result={buying}
+          onCancel={() => setBuying(null)}
+          onBought={(delivery) => {
+            setBought({ result: buying, delivery })
+            setBuying(null)
+          }}
+        />
+      )}
     </div>
   )
 }
 
-function ResultRow({ result }: { result: ContentSearchResultWithPublication }) {
+function ResultRow({
+  result,
+  onBuy,
+}: {
+  result: ContentSearchResultWithPublication
+  onBuy: () => void
+}) {
+  const title = result.title || 'Untitled'
   return (
     <li className="px-4 py-3 space-y-1">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-medium text-gray-900">{result.title || 'Untitled'}</p>
-        <span className="text-sm font-medium text-gray-900">{formatCents(result.price_cents)}</span>
+        <p className="text-sm font-medium text-gray-900">{title}</p>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-900">
+            {formatCents(result.price_cents)}
+          </span>
+          <button
+            type="button"
+            onClick={onBuy}
+            aria-label={`Buy ${title}`}
+            className="px-3 py-1 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+          >
+            Buy
+          </button>
+        </div>
       </div>
       <p className="text-xs text-gray-500">
         <span>{result.store_name}</span>
