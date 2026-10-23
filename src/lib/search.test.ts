@@ -5,8 +5,44 @@ import {
   resultSource,
   retryAfterSeconds,
   searchQueryString,
+  selectability,
   selectableWork,
 } from './search'
+
+describe('selectability', () => {
+  const pub = { id: 'p-1', name: 'Futurism', bulk_licensable: true, topics: [] }
+  const url = 'https://futurism.com/a'
+  const reason = (overrides: Parameters<typeof makeResult>[0]) =>
+    selectability(makeResult({ url, publication: pub, ...overrides })).reason
+
+  it('has the work and no reason for a result that can go in the Selection', () => {
+    expect(selectability(makeResult({ url, publication: pub }))).toEqual({
+      work: { url, publicationId: 'p-1', publicationName: 'Futurism' },
+      reason: null,
+    })
+  })
+
+  it('says a Store work is sold by a store, not a Publication', () => {
+    expect(reason({ publication: null })).toBe('Sold by a LedeWire store, not a Publication')
+  })
+
+  it('says a brokered work on no listed Publication comes from an unlisted site', () => {
+    expect(reason({ content_type: 'brokered', publication: null })).toBe(
+      "From a site that isn't a listed Publication",
+    )
+  })
+
+  it('names a Publication that doesn’t license in bulk', () => {
+    expect(reason({ publication: { ...pub, bulk_licensable: false } })).toBe(
+      "Futurism doesn't license in bulk",
+    )
+  })
+
+  it('says a work with no web link has none', () => {
+    expect(reason({ url: null })).toBe('Has no web link')
+    expect(reason({ url: 'javascript:x' })).toBe('Has no web link')
+  })
+})
 
 describe('selectableWork', () => {
   const pub = { id: 'p-1', name: 'Futurism', bulk_licensable: true, topics: [] }

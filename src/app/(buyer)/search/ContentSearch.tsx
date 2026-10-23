@@ -9,7 +9,7 @@ import {
   resultTitle,
   retryAfterSeconds,
   searchQueryString,
-  selectableWork,
+  selectability,
 } from '@/lib/search'
 import BuyConfirmation from './BuyConfirmation'
 import ArticleView, { type BoughtWork } from './ArticleView'
@@ -118,8 +118,8 @@ export default function ContentSearch({
   }
 
   const noneLoaded = results !== null && results.length === 0
-  // Each result, with the work it would add to the Selection (null when it can't be one).
-  const rows = (results ?? []).map((result) => ({ result, work: selectableWork(result) }))
+  // Each result, with the work it would add to the Selection or why it can't.
+  const rows = (results ?? []).map((result) => ({ result, ...selectability(result) }))
 
   // The results, cursor and filters stay in state underneath, so Back needs no new search.
   if (bought) return <ArticleView work={bought} onBack={() => setBought(null)} />
@@ -186,24 +186,30 @@ export default function ContentSearch({
       )}
 
       {rows.length > 0 && (
-        <ul className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-          {rows.map(({ result: r, work }) => {
-            return (
+        <>
+          <p className="text-xs text-gray-500">
+            Tick articles to add them to a bulk export. Greyed-out ones can&apos;t be licensed in
+            bulk — hover for why.
+          </p>
+          <ul className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+            {rows.map(({ result: r, work, reason }) => (
               <ResultRow
                 key={r.id}
                 result={r}
                 onBuy={() => setConfirming(r)}
                 checkbox={
-                  work && {
-                    inSelection: selection.has(work.url),
-                    ticked: ticked.has(work.url),
-                    onToggle: () => toggleTicked(work),
-                  }
+                  work
+                    ? {
+                        inSelection: selection.has(work.url),
+                        ticked: ticked.has(work.url),
+                        onToggle: () => toggleTicked(work),
+                      }
+                    : { unavailable: reason }
                 }
               />
-            )
-          })}
-        </ul>
+            ))}
+          </ul>
+        </>
       )}
 
       {noneLoaded && !nextCursor && !partial && (
@@ -242,12 +248,15 @@ export default function ContentSearch({
   )
 }
 
-/** A result's checkbox for the Selection: whether it is already in it, or ticked to be added. */
-interface SelectionCheckbox {
-  inSelection: boolean
-  ticked: boolean
-  onToggle: () => void
-}
+/**
+ * A result's checkbox for the Selection: whether it is already in it or ticked to be added, or,
+ * for a result that can't go in it, why not.
+ */
+type SelectionCheckbox =
+  | { inSelection: boolean; ticked: boolean; onToggle: () => void }
+  | { unavailable: string }
+
+const CHECKBOX_CLASSES = 'rounded-sm border-gray-300 text-indigo-600 disabled:opacity-40'
 
 function ResultRow({
   result,
@@ -256,22 +265,33 @@ function ResultRow({
 }: {
   result: ContentSearchResultWithPublication
   onBuy: () => void
-  /** Null for a result that can't go in the Selection, which gets no checkbox. */
-  checkbox: SelectionCheckbox | null
+  checkbox: SelectionCheckbox
 }) {
   const title = resultTitle(result)
   return (
     <li className="px-4 py-3 space-y-1">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="flex items-baseline gap-3">
-          {checkbox && (
+          {'unavailable' in checkbox ? (
+            // A disabled input gets no hover events, so the tooltip sits on a wrapper.
+            <span title={checkbox.unavailable} className="cursor-not-allowed">
+              <input
+                type="checkbox"
+                aria-label={`${title} can't be added: ${checkbox.unavailable}`}
+                checked={false}
+                disabled
+                readOnly
+                className={CHECKBOX_CLASSES}
+              />
+            </span>
+          ) : (
             <input
               type="checkbox"
               aria-label={checkbox.inSelection ? `${title} is in the selection` : `Select ${title}`}
               checked={checkbox.inSelection || checkbox.ticked}
               disabled={checkbox.inSelection}
               onChange={checkbox.onToggle}
-              className="rounded-sm border-gray-300 text-indigo-600 disabled:opacity-40"
+              className={CHECKBOX_CLASSES}
             />
           )}
           <p className="text-sm font-medium text-gray-900">{title}</p>
