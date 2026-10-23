@@ -209,6 +209,12 @@ describe('ArticleView', () => {
       expect(screen.queryByRole('button', { name: /to selection/ })).not.toBeInTheDocument()
     })
 
+    it('a bulk-licensable result without a web URL can’t be added', () => {
+      renderWithSummary({ ...brokered(), url: 'javascript:alert(1)' })
+      expect(screen.getByRole('link', { name: 'Browse all from Inc.' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /to selection/ })).not.toBeInTheDocument()
+    })
+
     it('a bulk-licensable result links to its Publication and says a bulk licence is charged again', () => {
       renderWithSummary(brokered())
       expect(
