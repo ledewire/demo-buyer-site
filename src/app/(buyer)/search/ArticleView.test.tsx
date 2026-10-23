@@ -41,6 +41,14 @@ describe('ArticleView', () => {
       expect(screen.getByText('Hot.').tagName).toBe('P')
     })
 
+    it.each([
+      ['markdown', 'Hot.'],
+      ['html', '<p>Hot.</p>'],
+    ] as const)('sets a %s body in article typography', (content_type, content_body) => {
+      renderArticle({ content_type, content_body })
+      expect(screen.getByText('Hot.').parentElement).toHaveClass('prose', 'prose-gray')
+    })
+
     it('renders a brokered body as markdown, raw HTML dropped', () => {
       const { container } = renderArticle({
         content_type: 'brokered',
