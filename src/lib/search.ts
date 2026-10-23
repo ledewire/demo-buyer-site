@@ -22,3 +22,6 @@ export function parseSearchFilters(
   if (cents === null) return { error: INVALID_MAX_PRICE_MESSAGE }
   return { query, max_price_cents: cents }
 }
+
+/** Searches with a query are limited per minute; wait that long when a 429 doesn't say. */
+export const DEFAULT_RETRY_AFTER_S = 60
