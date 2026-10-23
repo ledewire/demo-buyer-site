@@ -12,6 +12,7 @@ function pub(overrides: Partial<Publication>): Publication {
   return {
     id: 'p',
     name: 'Pub',
+    topics: [],
     domains: [],
     bulk_licensable: false,
     coverage_horizon: null,
