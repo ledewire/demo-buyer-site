@@ -2,21 +2,43 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { formatDate } from '@/lib/format'
-import { filterPublications, getAllPublications } from '@/lib/publications'
+import { createBuyerClient } from '@/lib/ledewire'
+import { parsePage } from '@/lib/pagination'
 import ExportSelectionSummary from '@/components/ExportSelectionSummary'
+import Pagination from '@/components/Pagination'
 import { AuthError, LedewireError } from '@ledewire/node'
 
+const PER_PAGE = 50
+
 interface Props {
-  searchParams: Promise<{ q?: string; licensable?: string }>
+  searchParams: Promise<{ q?: string; licensable?: string; page?: string }>
+}
+
+/** The catalog URL for `page`, keeping the search filters. */
+function pageHref(q: string, licensableOnly: boolean, page: number): string {
+  const qs = new URLSearchParams()
+  if (q) qs.set('q', q)
+  if (licensableOnly) qs.set('licensable', '1')
+  qs.set('page', String(page))
+  return `/catalog?${qs.toString()}`
 }
 
 export default async function CatalogPage({ searchParams }: Props) {
   await requireAuth()
-  const { q = '', licensable } = await searchParams
-  const licensableOnly = licensable === '1'
+  const sp = await searchParams
+  const q = sp.q?.trim() ?? ''
+  const licensableOnly = sp.licensable === '1'
+  const page = parsePage(sp.page)
 
   try {
-    const publications = filterPublications(await getAllPublications(), q, licensableOnly)
+    const client = await createBuyerClient()
+    // `bulk_licensable: false` would mean non-licensable only, so leave it unset unless filtering.
+    const { data: publications, pagination } = await client.publications.list({
+      page,
+      per_page: PER_PAGE,
+      ...(q && { q }),
+      ...(licensableOnly && { bulk_licensable: true }),
+    })
     return (
       <div className="space-y-6">
         <div>
@@ -89,6 +111,8 @@ export default async function CatalogPage({ searchParams }: Props) {
             ))}
           </ul>
         )}
+
+        <Pagination pagination={pagination} hrefFor={(n) => pageHref(q, licensableOnly, n)} />
       </div>
     )
   } catch (err) {
