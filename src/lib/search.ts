@@ -23,6 +23,17 @@ export function parseSearchFilters(
   return { query, max_price_cents: cents }
 }
 
+/**
+ * The query string `parseSearchFilters` reads back: `q` and `max_price` as typed
+ * (a blank max price left out), then the `cursor` of the page to load, if any.
+ */
+export function searchQueryString(q: string, maxPrice: string, cursor?: string): string {
+  const qs = new URLSearchParams({ q })
+  if (maxPrice) qs.set('max_price', maxPrice)
+  if (cursor) qs.set('cursor', cursor)
+  return qs.toString()
+}
+
 /** Searches with a query are limited per minute; wait that long when a 429 doesn't say. */
 const DEFAULT_RETRY_AFTER_S = 60
 

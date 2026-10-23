@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { ContentSearchResponse, ContentSearchResultWithPublication } from '@ledewire/node'
 import { formatCents } from '@/lib/format'
-import { resultTitle, retryAfterSeconds } from '@/lib/search'
+import { resultTitle, retryAfterSeconds, searchQueryString } from '@/lib/search'
 import BuyConfirmation from './BuyConfirmation'
 import ArticleView, { type BoughtWork } from './ArticleView'
 import ErrorAlert from './ErrorAlert'
@@ -56,10 +56,7 @@ export default function ContentSearch({
     try {
       // The filters the loaded results came from, as the URL holds them; the
       // cursor is only valid with exactly these.
-      const qs = new URLSearchParams({ q })
-      if (maxPrice) qs.set('max_price', maxPrice)
-      qs.set('cursor', cursor)
-      const res = await fetch(`/api/search?${qs.toString()}`)
+      const res = await fetch(`/api/search?${searchQueryString(q, maxPrice, cursor)}`)
       if (res.status === 429) {
         setRetryIn(retryAfterSeconds(res.headers.get('Retry-After')))
         return

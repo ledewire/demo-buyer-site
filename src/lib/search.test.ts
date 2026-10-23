@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseSearchFilters, retryAfterSeconds } from './search'
+import { parseSearchFilters, retryAfterSeconds, searchQueryString } from './search'
 
 describe('parseSearchFilters', () => {
   it('is null with no query to search for', () => {
@@ -21,6 +21,31 @@ describe('parseSearchFilters', () => {
       error: 'Enter a max price of $0 or more',
     })
     expect(parseSearchFilters('ocean', '-1')).toEqual({ error: 'Enter a max price of $0 or more' })
+  })
+})
+
+describe('searchQueryString', () => {
+  it('encodes the filters as typed, then the cursor', () => {
+    expect(searchQueryString('ocean heat', '1.50', 'cur-1')).toBe(
+      'q=ocean+heat&max_price=1.50&cursor=cur-1',
+    )
+  })
+
+  it('leaves out a blank max price and a missing cursor', () => {
+    expect(searchQueryString('ocean', '')).toBe('q=ocean')
+  })
+
+  it.each([
+    ['ocean', ''],
+    [' ocean & reefs ', '1.50'],
+    ['café?', '0'],
+    ['ocean', 'cheap'],
+  ])('parses back to the filters it was given: %j, %j', (q, maxPrice) => {
+    const qs = new URLSearchParams(searchQueryString(q, maxPrice, 'c/1+2'))
+    expect(parseSearchFilters(qs.get('q'), qs.get('max_price'))).toEqual(
+      parseSearchFilters(q, maxPrice),
+    )
+    expect(qs.get('cursor')).toBe('c/1+2')
   })
 })
 

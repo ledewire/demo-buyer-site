@@ -3,9 +3,9 @@ import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { formatDate } from '@/lib/format'
 import { createBuyerClient } from '@/lib/ledewire'
-import { parsePage } from '@/lib/pagination'
 import ExportSelectionSummary from '@/components/ExportSelectionSummary'
 import Pagination from '@/components/Pagination'
+import { catalogHref, parseCatalogFilters } from './filters'
 import { AuthError, LedewireError } from '@ledewire/node'
 
 const PER_PAGE = 50
@@ -14,21 +14,10 @@ interface Props {
   searchParams: Promise<{ q?: string; licensable?: string; page?: string }>
 }
 
-/** The catalog URL for `page`, keeping the search filters. */
-function pageHref(q: string, licensableOnly: boolean, page: number): string {
-  const qs = new URLSearchParams()
-  if (q) qs.set('q', q)
-  if (licensableOnly) qs.set('licensable', '1')
-  qs.set('page', String(page))
-  return `/catalog?${qs.toString()}`
-}
-
 export default async function CatalogPage({ searchParams }: Props) {
   await requireAuth()
-  const sp = await searchParams
-  const q = sp.q?.trim() ?? ''
-  const licensableOnly = sp.licensable === '1'
-  const page = parsePage(sp.page)
+  const { filters, page } = parseCatalogFilters(await searchParams)
+  const { q, licensableOnly } = filters
 
   try {
     const client = await createBuyerClient()
@@ -112,7 +101,7 @@ export default async function CatalogPage({ searchParams }: Props) {
           </ul>
         )}
 
-        <Pagination pagination={pagination} hrefFor={(n) => pageHref(q, licensableOnly, n)} />
+        <Pagination pagination={pagination} hrefFor={(n) => catalogHref(filters, n)} />
       </div>
     )
   } catch (err) {
