@@ -55,6 +55,24 @@ describe('ContentSearch', () => {
     expect(screen.queryByText(/\d+ results?/i)).not.toBeInTheDocument()
   })
 
+  it('names a brokered work’s publisher, never the LedeWire store that sells it', () => {
+    const brokered = { content_type: 'brokered' as const, store_name: 'LedeWire' }
+    renderSearch({
+      initialPage: page([
+        makeResult({
+          ...brokered,
+          id: 'b-1',
+          url: 'https://futurism.com/ev',
+          publication: { id: 'p-1', name: 'Futurism', bulk_licensable: false, topics: [] },
+        }),
+        makeResult({ ...brokered, id: 'b-2', url: 'https://www.inc.com/a', publication: null }),
+      ]),
+    })
+    expect(screen.getByText('Futurism')).toBeInTheDocument()
+    expect(screen.getByText('inc.com')).toBeInTheDocument()
+    expect(screen.queryByText('LedeWire')).not.toBeInTheDocument()
+  })
+
   it('Load more fetches the next page with the same filters and appends it', async () => {
     renderSearch({
       q: 'ocean',
