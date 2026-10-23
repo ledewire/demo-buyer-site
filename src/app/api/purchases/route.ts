@@ -6,6 +6,7 @@ import { ledewireErrorResponse } from '@/lib/route-errors'
 import { isWebUrl } from '@/lib/web-url'
 import sanitizeHtml from 'sanitize-html'
 import type { Delivery } from '@/lib/purchase-delivery'
+import type { PurchaseCreateRequest } from '@ledewire/node'
 
 /**
  * sanitize-html's defaults (no scripts, no on* handlers, no javascript: URLs),
@@ -39,8 +40,11 @@ export async function GET() {
   }
 }
 
-/** The work to buy, and the price the buyer confirmed for it — the API requires both. */
-type Order = { content_id: string; price_cents: number }
+/**
+ * The work to buy, and the price the buyer confirmed for it. The SDK types both as optional,
+ * but the API refuses a purchase without either (ledewire/ledewire-js-sdk#64).
+ */
+type Order = Required<PurchaseCreateRequest>
 
 async function readOrder(request: NextRequest): Promise<Order | null> {
   try {
@@ -59,7 +63,10 @@ export async function POST(request: NextRequest) {
 
   const order = await readOrder(request)
   if (!order) {
-    return NextResponse.json({ error: 'content_id and price_cents are required' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'content_id and a whole, non-negative price_cents are required' },
+      { status: 400 },
+    )
   }
 
   try {
