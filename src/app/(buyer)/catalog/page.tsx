@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { formatDate } from '@/lib/format'
 import { createBuyerClient } from '@/lib/ledewire'
+import { parsePage } from '@/lib/pagination'
 import ExportSelectionSummary from '@/components/ExportSelectionSummary'
 import Pagination from '@/components/Pagination'
 import { AuthError, LedewireError } from '@ledewire/node'
@@ -11,12 +12,6 @@ const PER_PAGE = 50
 
 interface Props {
   searchParams: Promise<{ q?: string; licensable?: string; page?: string }>
-}
-
-/** A positive integer page from the URL; anything else is page 1. */
-function parsePage(value: string | undefined): number {
-  const page = Number(value)
-  return Number.isInteger(page) && page > 0 ? page : 1
 }
 
 /** The catalog URL for `page`, keeping the search filters. */

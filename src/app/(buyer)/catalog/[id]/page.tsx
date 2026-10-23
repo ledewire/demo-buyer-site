@@ -22,11 +22,13 @@ export default async function PublicationPage({ params }: Props) {
     publication = await client.publications.get(id)
   } catch (err) {
     if (err instanceof AuthError) redirect('/login')
-    // Checked before LedewireError, its base class: an unknown or unlisted id is a 404.
-    if (!(err instanceof NotFoundError)) {
-      if (err instanceof LedewireError) {
-        return <p className="text-red-600 text-sm">API error: {err.message}</p>
-      }
+    // Checked before LedewireError, its base class: an unknown or unlisted id falls through to
+    // the 404 below.
+    if (err instanceof NotFoundError) {
+      publication = undefined
+    } else if (err instanceof LedewireError) {
+      return <p className="text-red-600 text-sm">API error: {err.message}</p>
+    } else {
       throw err
     }
   }
