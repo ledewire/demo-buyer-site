@@ -1,4 +1,5 @@
 import type { CompanyPurchase } from '@ledewire/node'
+import { parsePage } from '@/lib/pagination'
 
 export type SearchParams = Record<string, string | string[] | undefined>
 
@@ -26,7 +27,6 @@ export function parseFilters(sp: SearchParams): { filters: Filters; page: number
   const from = first(sp.from)
   const to = first(sp.to)
   const kind = first(sp.kind)
-  const page = Number(first(sp.page))
   return {
     filters: {
       ...(member && { member }),
@@ -37,6 +37,6 @@ export function parseFilters(sp: SearchParams): { filters: Filters; page: number
           kind: kind as CompanyPurchase['kind'],
         }),
     },
-    page: Number.isInteger(page) && page > 0 ? page : 1,
+    page: parsePage(first(sp.page)),
   }
 }
