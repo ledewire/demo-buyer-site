@@ -75,7 +75,8 @@ export default function ContentSearch({
       }
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error ?? 'Search failed')
+        // Worded as the server-rendered first page words it (page.tsx).
+        setError(data.error ? `API error: ${data.error}` : 'Search failed')
         return
       }
       const next = data as ContentSearchResponse

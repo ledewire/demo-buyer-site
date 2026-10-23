@@ -219,6 +219,14 @@ describe('ContentSearch', () => {
     expect([...new FormData(form).keys()]).toEqual(['q', 'max_price'])
   })
 
+  it('another API error on Load more reads as it does on the first page, keeping the results', async () => {
+    renderSearch({ initialPage: page([makeResult()], { next_cursor: 'cur-1' }) })
+    mockFetchOnce(503, { error: 'search is down' })
+    await userEvent.click(loadMore())
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^API error: search is down$/)
+    expect(screen.getByText('Ocean heat')).toBeInTheDocument()
+  })
+
   it('focuses the search box on open', () => {
     renderSearch({ q: '', initialPage: null })
     expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveFocus()
