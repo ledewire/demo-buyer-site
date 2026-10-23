@@ -128,7 +128,8 @@ describe('POST /api/purchases', () => {
       makePurchase({
         content: { ...makePurchase().content, content_type: 'html' },
         content_body:
-          '<p>Warm <b>seas</b></p><script>alert(1)</script><img src="x.png" onerror="alert(2)">',
+          '<p>Warm <b>seas</b></p><script>alert(1)</script><img src="x.png" onerror="alert(2)">' +
+          '<a href="https://example.com" target="_blank">More</a>',
       }),
     )
     const res = await postPurchase({ content_id: 'c-1' })
@@ -138,6 +139,8 @@ describe('POST /api/purchases', () => {
     expect(data.content_body).not.toContain('<script')
     expect(data.content_body).not.toContain('alert(1)')
     expect(data.content_body).not.toContain('onerror')
+    expect(data.content_body).toContain('<img src="x.png" />')
+    expect(data.content_body).toContain('rel="noopener noreferrer"')
   })
 
   it('returns content_uri for a work hosted elsewhere', async () => {

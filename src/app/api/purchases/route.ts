@@ -5,14 +5,20 @@ import { AuthError, LedewireError } from '@ledewire/node'
 import { listItems } from '@/lib/list-items'
 import { ledewireErrorResponse } from '@/lib/route-errors'
 import sanitizeHtml from 'sanitize-html'
+import type { Delivery } from '@/lib/purchase-delivery'
 
-/** sanitize-html's defaults (no scripts, no on* handlers), plus article images. */
-const ARTICLE_HTML: sanitizeHtml.IOptions = {
+/**
+ * sanitize-html's defaults (no scripts, no on* handlers, no javascript: URLs),
+ * plus article images; seller links can't reach back into this tab.
+ */
+const ARTICLE_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [...sanitizeHtml.defaults.allowedTags, 'img'],
   allowedAttributes: {
     ...sanitizeHtml.defaults.allowedAttributes,
+    a: [...(sanitizeHtml.defaults.allowedAttributes.a ?? []), 'rel'],
     img: ['src', 'alt', 'title', 'width', 'height'],
   },
+  transformTags: { a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }) },
 }
 
 export async function GET() {
@@ -65,10 +71,11 @@ export async function POST(request: NextRequest) {
     const purchase = await client.purchases.create({ content_id })
     const contentType = purchase.content.content_type
     const body = purchase.content_body
-    return NextResponse.json({
+    return NextResponse.json<Delivery>({
       content_type: contentType,
       // Delivered as plain text, never base64; HTML is the seller's, so clean it here.
-      content_body: contentType === 'html' && body ? sanitizeHtml(body, ARTICLE_HTML) : body,
+      content_body:
+        contentType === 'html' && body ? sanitizeHtml(body, ARTICLE_SANITIZE_OPTIONS) : body,
       content_uri: webUrl(purchase.content_uri),
     })
   } catch (err) {

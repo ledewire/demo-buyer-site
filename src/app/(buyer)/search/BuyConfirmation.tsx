@@ -4,13 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { ContentSearchResultWithPublication } from '@ledewire/node'
 import { formatCents } from '@/lib/format'
-
-/** What `POST /api/purchases` returns: the work, delivered once. */
-export interface Delivery {
-  content_type: string
-  content_body?: string
-  content_uri?: string
-}
+import type { Delivery } from '@/lib/purchase-delivery'
+import { resultTitle } from '@/lib/search'
 
 interface Props {
   result: ContentSearchResultWithPublication
@@ -19,10 +14,7 @@ interface Props {
 }
 
 /** What the buy will be charged to: the buyer's wallet, or their Company. */
-type Payer = { balanceCents: number } | { companyName: string } | null
-
-/** Refusals the buyer fixes on the Wallet page: the spend cap, or too little money. */
-const WALLET_FIXES = new Set(['daily_spend_cap_reached', 'insufficient_funds'])
+type Payer = { balanceCents: number } | { companyName: string } | 'unavailable' | null
 
 interface Refusal {
   message: string
@@ -50,7 +42,8 @@ export default function BuyConfirmation({ result, onCancel, onBought }: Props) {
       }
       setRefusal({
         message: data.error ?? 'The purchase failed',
-        walletLink: res.status === 402 || WALLET_FIXES.has(data.type),
+        // The buyer fixes these on the Wallet page: the spend cap (402) or too little money.
+        walletLink: res.status === 402 || data.type === 'insufficient_funds',
       })
     } catch {
       setRefusal({ message: 'Network error — please try again', walletLink: false })
@@ -63,7 +56,11 @@ export default function BuyConfirmation({ result, onCancel, onBought }: Props) {
     let cancelled = false
     fetch('/api/wallet/balance')
       .then(async (res) => {
-        if (!res.ok || cancelled) return
+        if (cancelled) return
+        if (!res.ok) {
+          setPayer('unavailable')
+          return
+        }
         const data = await res.json()
         if (cancelled) return
         setPayer(
@@ -72,7 +69,9 @@ export default function BuyConfirmation({ result, onCancel, onBought }: Props) {
             : { balanceCents: data.balance_cents ?? 0 },
         )
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) setPayer('unavailable')
+      })
     return () => {
       cancelled = true
     }
@@ -87,15 +86,18 @@ export default function BuyConfirmation({ result, onCancel, onBought }: Props) {
         className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg space-y-4"
       >
         <h2 id="buy-title" className="text-lg font-semibold text-gray-900">
-          Buy {result.title || 'Untitled'}?
+          Buy {resultTitle(result)}?
         </h2>
         <p className="text-sm text-gray-700">
           Price: <span className="font-medium">{formatCents(result.price_cents)}</span>
         </p>
-        {payer && 'companyName' in payer && (
+        {payer === 'unavailable' && (
+          <p className="text-sm text-gray-500">Your balance couldn’t be loaded.</p>
+        )}
+        {typeof payer === 'object' && payer && 'companyName' in payer && (
           <p className="text-sm text-gray-700">Charged to {payer.companyName}</p>
         )}
-        {payer && 'balanceCents' in payer && (
+        {typeof payer === 'object' && payer && 'balanceCents' in payer && (
           <p className="text-sm text-gray-700">Wallet balance: {formatCents(payer.balanceCents)}</p>
         )}
         {refusal && (

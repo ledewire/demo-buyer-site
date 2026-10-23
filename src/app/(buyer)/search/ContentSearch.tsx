@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import type { ContentSearchResponse, ContentSearchResultWithPublication } from '@ledewire/node'
 import { formatCents } from '@/lib/format'
-import { retryAfterSeconds } from '@/lib/search'
-import BuyConfirmation, { type Delivery } from './BuyConfirmation'
+import type { BoughtWork } from '@/lib/purchase-delivery'
+import { resultTitle, retryAfterSeconds } from '@/lib/search'
+import BuyConfirmation from './BuyConfirmation'
 import ArticleView from './ArticleView'
 
 interface Props {
@@ -39,12 +40,9 @@ export default function ContentSearch({
   const [retryIn, setRetryIn] = useState(initialRetryAfter ?? 0)
   const rateLimited = retryIn > 0
   // The result whose Buy confirmation is open.
-  const [buying, setBuying] = useState<ContentSearchResultWithPublication | null>(null)
+  const [confirming, setConfirming] = useState<ContentSearchResultWithPublication | null>(null)
   // The work just bought, held only in memory: refreshing loses it.
-  const [bought, setBought] = useState<{
-    result: ContentSearchResultWithPublication
-    delivery: Delivery
-  } | null>(null)
+  const [bought, setBought] = useState<BoughtWork | null>(null)
 
   useEffect(() => {
     if (!rateLimited) return
@@ -98,14 +96,7 @@ export default function ContentSearch({
   const noneLoaded = results !== null && results.length === 0
 
   // The results, cursor and filters stay in state underneath, so Back needs no new search.
-  if (bought)
-    return (
-      <ArticleView
-        result={bought.result}
-        delivery={bought.delivery}
-        onBack={() => setBought(null)}
-      />
-    )
+  if (bought) return <ArticleView work={bought} onBack={() => setBought(null)} />
 
   return (
     <div className="space-y-4">
@@ -165,7 +156,7 @@ export default function ContentSearch({
       {results && results.length > 0 && (
         <ul className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
           {results.map((r) => (
-            <ResultRow key={r.id} result={r} onBuy={() => setBuying(r)} />
+            <ResultRow key={r.id} result={r} onBuy={() => setConfirming(r)} />
           ))}
         </ul>
       )}
@@ -199,13 +190,13 @@ export default function ContentSearch({
         </button>
       )}
 
-      {buying && (
+      {confirming && (
         <BuyConfirmation
-          result={buying}
-          onCancel={() => setBuying(null)}
+          result={confirming}
+          onCancel={() => setConfirming(null)}
           onBought={(delivery) => {
-            setBought({ result: buying, delivery })
-            setBuying(null)
+            setBought({ result: confirming, delivery })
+            setConfirming(null)
           }}
         />
       )}
@@ -220,7 +211,7 @@ function ResultRow({
   result: ContentSearchResultWithPublication
   onBuy: () => void
 }) {
-  const title = result.title || 'Untitled'
+  const title = resultTitle(result)
   return (
     <li className="px-4 py-3 space-y-1">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
