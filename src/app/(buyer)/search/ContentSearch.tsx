@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { ContentSearchResponse, ContentSearchResultWithPublication } from '@ledewire/node'
 import { formatCents } from '@/lib/format'
-import { DEFAULT_RETRY_AFTER_S } from '@/lib/search'
+import { retryAfterSeconds } from '@/lib/search'
 
 interface Props {
   /** The query and max price (dollars) from the URL, as typed. */
@@ -15,12 +15,6 @@ interface Props {
   initialRetryAfter?: number
   /** Why the server couldn't search, shown under the form. */
   initialError?: string
-}
-
-/** The whole seconds a 429's Retry-After asks for. */
-function retryAfterSeconds(res: Response): number {
-  const s = Number(res.headers.get('Retry-After'))
-  return Number.isFinite(s) && s > 0 ? Math.ceil(s) : DEFAULT_RETRY_AFTER_S
 }
 
 export default function ContentSearch({
@@ -60,7 +54,7 @@ export default function ContentSearch({
       qs.set('cursor', cursor)
       const res = await fetch(`/api/search?${qs.toString()}`)
       if (res.status === 429) {
-        setRetryIn(retryAfterSeconds(res))
+        setRetryIn(retryAfterSeconds(res.headers.get('Retry-After')))
         return
       }
       if (res.status === 422) {
@@ -78,7 +72,11 @@ export default function ContentSearch({
         return
       }
       const next = data as ContentSearchResponse
-      setResults((prev) => [...(prev ?? []), ...next.data])
+      setResults((prev) => {
+        // A page that re-asks for a missed source may repeat a row already shown.
+        const seen = new Set((prev ?? []).map((r) => r.id))
+        return [...(prev ?? []), ...next.data.filter((r) => !seen.has(r.id))]
+      })
       setNextCursor(next.next_cursor)
       setPartial(next.partial_results)
     } catch {

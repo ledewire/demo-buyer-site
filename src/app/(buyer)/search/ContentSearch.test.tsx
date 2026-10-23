@@ -211,4 +211,17 @@ describe('ContentSearch', () => {
     renderSearch({ q: '', initialPage: null })
     expect(screen.getByRole('searchbox', { name: 'Search' })).toHaveFocus()
   })
+
+  it('does not repeat a row a later page sends again', async () => {
+    renderSearch({
+      initialPage: page([makeResult()], { next_cursor: 'cur-1', partial_results: true }),
+    })
+    mockFetchOnce(
+      200,
+      page([makeResult(), makeResult({ id: 'c-2', title: 'Coral', teaser: 'Reefs.' })]),
+    )
+    await userEvent.click(loadMore())
+    await screen.findByText('Coral')
+    expect(screen.getAllByText('Ocean heat')).toHaveLength(1)
+  })
 })

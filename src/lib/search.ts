@@ -24,4 +24,13 @@ export function parseSearchFilters(
 }
 
 /** Searches with a query are limited per minute; wait that long when a 429 doesn't say. */
-export const DEFAULT_RETRY_AFTER_S = 60
+const DEFAULT_RETRY_AFTER_S = 60
+
+/**
+ * The whole seconds to wait after a 429, from the SDK's `retryAfter` or a
+ * `Retry-After` header: a minute when it's missing, zero or not a number.
+ */
+export function retryAfterSeconds(value: number | string | null | undefined): number {
+  const s = Number(value)
+  return Number.isFinite(s) && s > 0 ? Math.ceil(s) : DEFAULT_RETRY_AFTER_S
+}
