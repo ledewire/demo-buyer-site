@@ -62,6 +62,9 @@ describe('SearchPage', () => {
 
   it('with no query renders the form and searches nothing', async () => {
     await renderPage()
+    expect(
+      screen.getByText('Search for content, optionally limiting the price.'),
+    ).toBeInTheDocument()
     expect(screen.getByRole('searchbox', { name: 'Search' })).toBeInTheDocument()
     expect(searchButton()).toBeEnabled()
     expect(mockContent.search).not.toHaveBeenCalled()
