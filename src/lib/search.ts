@@ -34,3 +34,8 @@ export function retryAfterSeconds(value: number | string | null | undefined): nu
   const s = Number(value)
   return Number.isFinite(s) && s > 0 ? Math.ceil(s) : DEFAULT_RETRY_AFTER_S
 }
+
+/** A search result's title for display; a result's title can be empty. */
+export function resultTitle(result: { title: string }): string {
+  return result.title || 'Untitled'
+}

@@ -50,6 +50,17 @@ function renderSearch(props: Partial<Parameters<typeof ContentSearch>[0]> = {}) 
 
 const loadMore = () => screen.getByRole('button', { name: 'Load more' })
 
+const WALLET = { balance_cents: 1000, remaining_cents: null, company_name: null }
+
+/** Buys the first "Ocean heat" result and answers the purchase with `delivery`. */
+async function buy(user: ReturnType<typeof userEvent.setup>, delivery: object, status = 200) {
+  mockFetchOnce(200, WALLET)
+  await user.click(screen.getByRole('button', { name: 'Buy Ocean heat' }))
+  await screen.findByText('Wallet balance: $10.00')
+  mockFetchOnce(status, delivery)
+  await user.click(screen.getByRole('button', { name: 'Confirm purchase' }))
+}
+
 describe('ContentSearch', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -223,5 +234,195 @@ describe('ContentSearch', () => {
     await userEvent.click(loadMore())
     await screen.findByText('Coral')
     expect(screen.getAllByText('Ocean heat')).toHaveLength(1)
+  })
+
+  describe('buying a result', () => {
+    it('shows Buy on every result and no Open or bought-before state', () => {
+      renderSearch({ initialPage: page([makeResult(), makeResult({ id: 'c-2', title: 'Coral' })]) })
+      expect(screen.getAllByRole('button', { name: /^Buy/ })).toHaveLength(2)
+      expect(screen.queryByRole('link', { name: /open/i })).not.toBeInTheDocument()
+      expect(screen.queryByText(/purchased|bought|owned/i)).not.toBeInTheDocument()
+    })
+
+    it('Buy opens a confirmation with the price and wallet balance; Cancel buys nothing', async () => {
+      const user = userEvent.setup()
+      renderSearch({ initialPage: page([makeResult()]) })
+      mockFetchOnce(200, { balance_cents: 1000, remaining_cents: null, company_name: null })
+      await user.click(screen.getByRole('button', { name: 'Buy Ocean heat' }))
+      const dialog = screen.getByRole('dialog')
+      expect(dialog).toHaveTextContent('$1.25')
+      expect(await screen.findByText('Wallet balance: $10.00')).toBeInTheDocument()
+      expect(global.fetch).toHaveBeenCalledWith('/api/wallet/balance')
+
+      await user.click(screen.getByRole('button', { name: 'Cancel' }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(global.fetch).not.toHaveBeenCalledWith('/api/purchases', expect.anything())
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('names the Company instead of a balance for a Company member', async () => {
+      const user = userEvent.setup()
+      renderSearch({ initialPage: page([makeResult()]) })
+      mockFetchOnce(200, { balance_cents: null, remaining_cents: 5000, company_name: 'Acme' })
+      await user.click(screen.getByRole('button', { name: 'Buy Ocean heat' }))
+      expect(await screen.findByText('Charged to Acme')).toBeInTheDocument()
+      expect(screen.queryByText(/Wallet balance/)).not.toBeInTheDocument()
+    })
+
+    it('confirming buys the work and replaces the results with the markdown article', async () => {
+      const user = userEvent.setup()
+      const { container } = renderSearch({
+        initialPage: page([makeResult(), makeResult({ id: 'c-2', title: 'Coral' })]),
+      })
+      await buy(user, {
+        content_type: 'markdown',
+        content_body:
+          '## Warming seas\n\nThe **sea** is hot.\n\n<script>alert(1)</script><b>raw</b>',
+      })
+      expect(global.fetch).toHaveBeenCalledWith('/api/purchases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content_id: 'c-1' }),
+      })
+      expect(await screen.findByRole('heading', { name: 'Warming seas' })).toBeInTheDocument()
+      expect(screen.getByText('sea').tagName).toBe('STRONG')
+      expect(container.querySelector('script')).toBeNull()
+      expect(container.querySelector('b')).toBeNull()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.queryByText('Coral')).not.toBeInTheDocument()
+    })
+
+    it('renders a (server-sanitized) HTML article as HTML', async () => {
+      const user = userEvent.setup()
+      renderSearch({ initialPage: page([makeResult({ content_type: 'html' })]) })
+      await buy(user, { content_type: 'html', content_body: '<h2>Warming seas</h2><p>Hot.</p>' })
+      expect(await screen.findByRole('heading', { name: 'Warming seas' })).toBeInTheDocument()
+      expect(screen.getByText('Hot.').tagName).toBe('P')
+    })
+
+    it('links Open to content_uri for a work hosted elsewhere', async () => {
+      const user = userEvent.setup()
+      renderSearch({ initialPage: page([makeResult({ content_type: 'pdf' })]) })
+      await buy(user, { content_type: 'pdf', content_uri: 'https://cdn.example.com/ocean.pdf' })
+      const open = await screen.findByRole('link', { name: /Open/ })
+      expect(open).toHaveAttribute('href', 'https://cdn.example.com/ocean.pdf')
+      expect(open).toHaveAttribute('rel', 'noopener noreferrer')
+    })
+
+    it('guards leaving while the article is on screen, and Back to results drops the guard', async () => {
+      const user = userEvent.setup()
+      const add = vi.spyOn(window, 'addEventListener')
+      const remove = vi.spyOn(window, 'removeEventListener')
+      renderSearch({ initialPage: page([makeResult()]) })
+      expect(add.mock.calls.some(([type]) => type === 'beforeunload')).toBe(false)
+
+      await buy(user, { content_type: 'markdown', content_body: 'Hot seas.' })
+      await screen.findByText('Hot seas.')
+      const registered = add.mock.calls.filter(([type]) => type === 'beforeunload')
+      expect(registered).toHaveLength(1)
+      const handler = registered[0][1] as (e: BeforeUnloadEvent) => unknown
+      const event = { preventDefault: vi.fn(), returnValue: '' } as unknown as BeforeUnloadEvent
+      handler(event)
+      expect(event.preventDefault).toHaveBeenCalled()
+      expect(event.returnValue).toBe(
+        "You won't be able to view this again without buying it again.",
+      )
+
+      await user.click(screen.getByRole('button', { name: '← Back to results' }))
+      expect(remove).toHaveBeenCalledWith('beforeunload', handler)
+    })
+
+    it('Back to results restores the loaded results and cursor without searching again', async () => {
+      const user = userEvent.setup()
+      renderSearch({ initialPage: page([makeResult()], { next_cursor: 'cur-2' }) })
+      mockFetchOnce(
+        200,
+        page([makeResult({ id: 'c-2', title: 'Coral' })], { next_cursor: 'cur-3' }),
+      )
+      await user.click(loadMore())
+      await screen.findByText('Coral')
+
+      await buy(user, { content_type: 'markdown', content_body: 'Hot seas.' })
+      await screen.findByText('Hot seas.')
+      await user.click(screen.getByRole('button', { name: '← Back to results' }))
+
+      expect(screen.getByText('Ocean heat')).toBeInTheDocument()
+      expect(screen.getByText('Coral')).toBeInTheDocument()
+      expect(screen.queryByText('Hot seas.')).not.toBeInTheDocument()
+      const searches = () =>
+        vi.mocked(global.fetch).mock.calls.filter(([url]) => String(url).startsWith('/api/search'))
+      expect(searches()).toHaveLength(1)
+
+      // The cursor survived too: Load more carries on from where it was.
+      mockFetchOnce(200, page([makeResult({ id: 'c-3', title: 'Kelp' })]))
+      await user.click(loadMore())
+      await screen.findByText('Kelp')
+      expect(searches()[1][0]).toBe('/api/search?q=ocean&cursor=cur-3')
+    })
+
+    it.each([
+      [402, { error: 'Daily spend cap reached', type: 'daily_spend_cap_reached' }],
+      [422, { error: 'Insufficient funds', type: 'insufficient_funds' }],
+    ])('a %i refusal shows its message with a link to /wallet', async (status, body) => {
+      const user = userEvent.setup()
+      renderSearch({ initialPage: page([makeResult()]) })
+      await buy(user, body, status)
+      expect(await screen.findByRole('alert')).toHaveTextContent(body.error)
+      expect(screen.getByRole('link', { name: /wallet/i })).toHaveAttribute('href', '/wallet')
+      expect(screen.getByText('Ocean heat')).toBeInTheDocument()
+    })
+
+    it('another refusal shows its message without a wallet link', async () => {
+      const user = userEvent.setup()
+      renderSearch({ initialPage: page([makeResult()]) })
+      await buy(user, { error: 'Content not found' }, 404)
+      expect(await screen.findByRole('alert')).toHaveTextContent('Content not found')
+      expect(screen.queryByRole('link', { name: /wallet/i })).not.toBeInTheDocument()
+    })
+
+    it('a network failure says so and buys nothing', async () => {
+      const user = userEvent.setup()
+      renderSearch({ initialPage: page([makeResult()]) })
+      mockFetchOnce(200, WALLET)
+      await user.click(screen.getByRole('button', { name: 'Buy Ocean heat' }))
+      vi.mocked(global.fetch).mockRejectedValueOnce(new TypeError('offline'))
+      await user.click(screen.getByRole('button', { name: 'Confirm purchase' }))
+      expect(await screen.findByRole('alert')).toHaveTextContent('Network error')
+      expect(screen.getByRole('button', { name: 'Confirm purchase' })).toBeEnabled()
+    })
+
+    it('writes nothing about the delivered body to localStorage or sessionStorage', async () => {
+      const user = userEvent.setup()
+      localStorage.clear()
+      const setItem = vi.spyOn(Storage.prototype, 'setItem')
+      renderSearch({ initialPage: page([makeResult()]) })
+      await buy(user, { content_type: 'markdown', content_body: 'Secret seas.' })
+      await screen.findByText('Secret seas.')
+      await user.click(screen.getByRole('button', { name: '← Back to results' }))
+
+      const stored = [localStorage, sessionStorage].flatMap((s) =>
+        Object.keys(s).map((k) => s.getItem(k) ?? ''),
+      )
+      expect(stored.some((v) => v.includes('Secret seas.'))).toBe(false)
+      expect(setItem.mock.calls.some(([, v]) => String(v).includes('Secret seas.'))).toBe(false)
+    })
+
+    it('says so when the balance can’t be loaded', async () => {
+      const user = userEvent.setup()
+      renderSearch({ initialPage: page([makeResult()]) })
+      mockFetchOnce(500, { error: 'boom' })
+      await user.click(screen.getByRole('button', { name: 'Buy Ocean heat' }))
+      expect(await screen.findByText('Your balance couldn’t be loaded.')).toBeInTheDocument()
+    })
+
+    it('renders a brokered body as markdown, raw HTML dropped', async () => {
+      const user = userEvent.setup()
+      const { container } = renderSearch({
+        initialPage: page([makeResult({ content_type: 'brokered' })]),
+      })
+      await buy(user, { content_type: 'brokered', content_body: '# Abstract\n\n<i>x</i>Plain.' })
+      expect(await screen.findByRole('heading', { name: 'Abstract' })).toBeInTheDocument()
+      expect(container.querySelector('i')).toBeNull()
+    })
   })
 })
