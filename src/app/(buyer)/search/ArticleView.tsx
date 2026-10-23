@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect } from 'react'
-import Link from 'next/link'
 import Markdown from 'react-markdown'
 import type { ContentSearchPublication } from '@ledewire/node'
 import type { BoughtWork, Delivery } from '@/lib/purchase-delivery'
@@ -89,12 +88,14 @@ function PublicationActions({
           </p>
         </div>
       )}
-      <Link
+      {/* A full page load, not <Link>: client-side navigation skips beforeunload,
+          so it would drop the bought article without the leave warning. */}
+      <a
         href={`/catalog/${encodeURIComponent(publication.id)}`}
         className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
       >
         Browse all from <em>{publication.name}</em>
-      </Link>
+      </a>
     </div>
   )
 }
