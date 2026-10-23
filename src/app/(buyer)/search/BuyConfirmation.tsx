@@ -38,7 +38,7 @@ export default function BuyConfirmation({ result, onCancel, onBought }: Props) {
       const res = await fetch('/api/purchases', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content_id: result.id }),
+        body: JSON.stringify({ content_id: result.id, price_cents: result.price_cents }),
       })
       const data = await res.json()
       if (res.ok) {
