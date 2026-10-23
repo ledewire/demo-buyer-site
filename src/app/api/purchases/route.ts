@@ -39,10 +39,15 @@ export async function GET() {
   }
 }
 
-async function readContentId(request: NextRequest): Promise<string | null> {
+/** The work to buy, and the price the buyer confirmed for it — the API requires both. */
+type Order = { content_id: string; price_cents: number }
+
+async function readOrder(request: NextRequest): Promise<Order | null> {
   try {
-    const body = await request.json()
-    return typeof body?.content_id === 'string' && body.content_id ? body.content_id : null
+    const { content_id, price_cents } = (await request.json()) ?? {}
+    const validId = typeof content_id === 'string' && content_id
+    const validPrice = Number.isInteger(price_cents) && price_cents >= 0
+    return validId && validPrice ? { content_id, price_cents } : null
   } catch {
     return null
   }
@@ -52,12 +57,14 @@ export async function POST(request: NextRequest) {
   const authResult = await requireAuthForRoute()
   if (authResult instanceof NextResponse) return authResult
 
-  const content_id = await readContentId(request)
-  if (!content_id) return NextResponse.json({ error: 'content_id is required' }, { status: 400 })
+  const order = await readOrder(request)
+  if (!order) {
+    return NextResponse.json({ error: 'content_id and price_cents are required' }, { status: 400 })
+  }
 
   try {
     const client = await createBuyerClient()
-    const purchase = await client.purchases.create({ content_id })
+    const purchase = await client.purchases.create(order)
     const contentType = purchase.content.content_type
     const body = purchase.content_body
     return NextResponse.json<Delivery>({

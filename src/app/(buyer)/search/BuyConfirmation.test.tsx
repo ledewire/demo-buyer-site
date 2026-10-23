@@ -60,7 +60,7 @@ describe('BuyConfirmation', () => {
     expect(global.fetch).toHaveBeenCalledWith('/api/purchases', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content_id: 'c-1' }),
+      body: JSON.stringify({ content_id: 'c-1', price_cents: 125 }),
     })
     expect(onBought).toHaveBeenCalledWith(delivery)
   })

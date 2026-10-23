@@ -76,6 +76,9 @@ describe('GET /api/purchases', () => {
   })
 })
 
+/** What BuyConfirmation posts: the work, and the price the buyer confirmed. */
+const ORDER = { content_id: 'c-1', price_cents: 125 }
+
 function postPurchase(body: unknown) {
   return POST(
     new NextRequest('http://localhost/api/purchases', {
@@ -118,18 +121,18 @@ describe('POST /api/purchases', () => {
     vi.mocked(requireAuthForRoute).mockResolvedValue(
       NextResponse.json({ error: 'Not authenticated' }, { status: 401 }) as never,
     )
-    const res = await postPurchase({ content_id: 'c-1' })
+    const res = await postPurchase(ORDER)
     expect(res.status).toBe(401)
     expect(mockPurchasesCreate).not.toHaveBeenCalled()
   })
 
-  it('buys by content_id and returns the markdown body as delivered, not base64-decoded', async () => {
+  it('buys at the confirmed price and returns the markdown body as delivered, not base64-decoded', async () => {
     // "IyBIaQ==" is valid base64 ("# Hi"); a route that decoded it would change it.
     const body = '# Ocean heat\n\nIyBIaQ=='
     mockPurchasesCreate.mockResolvedValue(makePurchase({ content_body: body }))
-    const res = await postPurchase({ content_id: 'c-1' })
+    const res = await postPurchase(ORDER)
     expect(res.status).toBe(200)
-    expect(mockPurchasesCreate).toHaveBeenCalledWith({ content_id: 'c-1' })
+    expect(mockPurchasesCreate).toHaveBeenCalledWith({ content_id: 'c-1', price_cents: 125 })
     expect(await res.json()).toEqual({ content_type: 'markdown', content_body: body })
   })
 
@@ -142,7 +145,7 @@ describe('POST /api/purchases', () => {
           '<a href="https://example.com" target="_blank">More</a>',
       }),
     )
-    const res = await postPurchase({ content_id: 'c-1' })
+    const res = await postPurchase(ORDER)
     const data = await res.json()
     expect(data.content_type).toBe('html')
     expect(data.content_body).toContain('<p>Warm <b>seas</b></p>')
@@ -161,7 +164,7 @@ describe('POST /api/purchases', () => {
           '<img src="https://img.example.com/a.png" alt="Reef" referrerpolicy="unsafe-url" loading="eager">',
       }),
     )
-    const data = await (await postPurchase({ content_id: 'c-1' })).json()
+    const data = await (await postPurchase(ORDER)).json()
     expect(data.content_body).toBe(
       '<img src="https://img.example.com/a.png" alt="Reef" referrerpolicy="no-referrer" loading="lazy" />',
     )
@@ -174,7 +177,7 @@ describe('POST /api/purchases', () => {
         content_uri: 'https://cdn.example.com/ocean.pdf',
       }),
     )
-    const res = await postPurchase({ content_id: 'c-1' })
+    const res = await postPurchase(ORDER)
     expect(await res.json()).toEqual({
       content_type: 'pdf',
       content_uri: 'https://cdn.example.com/ocean.pdf',
@@ -188,14 +191,18 @@ describe('POST /api/purchases', () => {
         content_uri: 'javascript:alert(1)',
       }),
     )
-    const res = await postPurchase({ content_id: 'c-1' })
+    const res = await postPurchase(ORDER)
     expect(await res.json()).toEqual({ content_type: 'pdf' })
   })
 
   it.each([
-    ['no content_id', {}],
-    ['an empty content_id', { content_id: '' }],
-    ['a non-string content_id', { content_id: 7 }],
+    ['no content_id', { price_cents: 125 }],
+    ['an empty content_id', { content_id: '', price_cents: 125 }],
+    ['a non-string content_id', { content_id: 7, price_cents: 125 }],
+    ['no price_cents', { content_id: 'c-1' }],
+    ['a non-number price_cents', { content_id: 'c-1', price_cents: '125' }],
+    ['a negative price_cents', { content_id: 'c-1', price_cents: -1 }],
+    ['a fractional price_cents', { content_id: 'c-1', price_cents: 1.5 }],
     ['a body that is not JSON', 'not json'],
   ])('returns 400 for %s, without buying', async (_label, body) => {
     const res = await postPurchase(body)
@@ -211,7 +218,7 @@ describe('POST /api/purchases', () => {
         resetsAt: '2026-10-24T00:00:00Z',
       }),
     )
-    const res = await postPurchase({ content_id: 'c-1' })
+    const res = await postPurchase(ORDER)
     expect(res.status).toBe(402)
     expect(await res.json()).toEqual({
       error: 'Daily spend cap reached',
@@ -224,21 +231,21 @@ describe('POST /api/purchases', () => {
     mockPurchasesCreate.mockRejectedValue(
       new LedewireError('Insufficient funds', 422, undefined, 'insufficient_funds' as never),
     )
-    const res = await postPurchase({ content_id: 'c-1' })
+    const res = await postPurchase(ORDER)
     expect(res.status).toBe(422)
     expect(await res.json()).toEqual({ error: 'Insufficient funds', type: 'insufficient_funds' })
   })
 
   it('returns 401 on AuthError', async () => {
     mockPurchasesCreate.mockRejectedValue(new AuthError('expired'))
-    const res = await postPurchase({ content_id: 'c-1' })
+    const res = await postPurchase(ORDER)
     expect(res.status).toBe(401)
   })
 
   it('returns 500 on an unexpected error', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     mockPurchasesCreate.mockRejectedValue(new Error('boom'))
-    const res = await postPurchase({ content_id: 'c-1' })
+    const res = await postPurchase(ORDER)
     expect(res.status).toBe(500)
   })
 })
