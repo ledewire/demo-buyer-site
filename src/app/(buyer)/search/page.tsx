@@ -12,24 +12,25 @@ interface Props {
 }
 
 type FirstPage =
-  | { page: ContentSearchResponse }
-  | { retryAfter: number }
-  | { error: string }
-  | Record<string, never>
+  | { kind: 'none' }
+  | { kind: 'page'; page: ContentSearchResponse }
+  | { kind: 'rateLimited'; retryAfter: number }
+  | { kind: 'error'; error: string }
 
 /** The first page of a search from the URL, or why there isn't one. */
 async function searchFirstPage(q: string, maxPrice: string): Promise<FirstPage> {
   const filters = parseSearchFilters(q, maxPrice)
-  if (!filters) return {}
-  if ('error' in filters) return { error: filters.error }
+  if (!filters) return { kind: 'none' }
+  if ('error' in filters) return { kind: 'error', error: filters.error }
   try {
     const client = await createBuyerClient()
-    return { page: await client.content.search(filters) }
+    return { kind: 'page', page: await client.content.search(filters) }
   } catch (err) {
     if (err instanceof AuthError) redirect('/login')
     if (err instanceof LedewireError) {
-      if (err.statusCode === 429) return { retryAfter: retryAfterSeconds(err.retryAfter) }
-      return { error: `API error: ${err.message}` }
+      if (err.statusCode === 429)
+        return { kind: 'rateLimited', retryAfter: retryAfterSeconds(err.retryAfter) }
+      return { kind: 'error', error: `API error: ${err.message}` }
     }
     throw err
   }
@@ -38,7 +39,7 @@ async function searchFirstPage(q: string, maxPrice: string): Promise<FirstPage> 
 export default async function SearchPage({ searchParams }: Props) {
   await requireAuth()
   const { q = '', max_price = '' } = await searchParams
-  const first = await searchFirstPage(q, max_price)
+  const firstPage = await searchFirstPage(q, max_price)
 
   return (
     <div className="space-y-6">
@@ -54,9 +55,9 @@ export default async function SearchPage({ searchParams }: Props) {
       <ContentSearch
         q={q}
         maxPrice={max_price}
-        initialPage={'page' in first ? first.page : null}
-        initialRetryAfter={'retryAfter' in first ? first.retryAfter : undefined}
-        initialError={'error' in first ? first.error : undefined}
+        initialPage={firstPage.kind === 'page' ? firstPage.page : null}
+        initialRetryAfter={firstPage.kind === 'rateLimited' ? firstPage.retryAfter : undefined}
+        initialError={firstPage.kind === 'error' ? firstPage.error : undefined}
       />
     </div>
   )

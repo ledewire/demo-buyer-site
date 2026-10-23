@@ -3,6 +3,7 @@ import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { listItems } from '@/lib/list-items'
 import { ledewireErrorResponse } from '@/lib/route-errors'
+import { isWebUrl } from '@/lib/web-url'
 import sanitizeHtml from 'sanitize-html'
 import type { Delivery } from '@/lib/purchase-delivery'
 
@@ -38,17 +39,6 @@ export async function GET() {
   }
 }
 
-/** The seller supplies content_uri; link to it only if it's a web address. */
-function webUrl(uri: string | undefined): string | undefined {
-  if (!uri) return undefined
-  try {
-    const { protocol } = new URL(uri)
-    return protocol === 'https:' || protocol === 'http:' ? uri : undefined
-  } catch {
-    return undefined
-  }
-}
-
 async function readContentId(request: NextRequest): Promise<string | null> {
   try {
     const body = await request.json()
@@ -75,7 +65,8 @@ export async function POST(request: NextRequest) {
       // Delivered as plain text, never base64; HTML is the seller's, so clean it here.
       content_body:
         contentType === 'html' && body ? sanitizeHtml(body, ARTICLE_SANITIZE_OPTIONS) : body,
-      content_uri: webUrl(purchase.content_uri),
+      // The seller supplies content_uri; link to it only if it's a web address.
+      content_uri: isWebUrl(purchase.content_uri) ? purchase.content_uri : undefined,
     })
   } catch (err) {
     return ledewireErrorResponse(err, 'purchases POST')

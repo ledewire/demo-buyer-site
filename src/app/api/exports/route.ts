@@ -2,18 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { ledewireErrorResponse } from '@/lib/route-errors'
+import { isWebUrl } from '@/lib/web-url'
 
 const MAX_URLS = 10_000
-
-function isHttpUrl(value: unknown): value is string {
-  if (typeof value !== 'string') return false
-  try {
-    const { protocol } = new URL(value)
-    return protocol === 'https:' || protocol === 'http:'
-  } catch {
-    return false
-  }
-}
 
 export async function POST(request: NextRequest) {
   const authResult = await requireAuthForRoute()
@@ -36,7 +27,7 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     )
   }
-  if (!urls.every(isHttpUrl)) {
+  if (!urls.every(isWebUrl)) {
     return NextResponse.json({ error: 'Every URL must be an http(s) URL' }, { status: 400 })
   }
 
