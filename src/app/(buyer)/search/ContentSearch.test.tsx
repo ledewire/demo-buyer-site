@@ -349,7 +349,60 @@ describe('ContentSearch', () => {
     const selected = () => JSON.parse(sessionStorage.getItem('lw_export_selection') ?? '[]')
     const addButton = () => screen.getByRole('button', { name: /^Add \d+ to selection$/ })
 
-    it('offers a checkbox only on a bulk-licensable result with a web URL', () => {
+    it('greys out the checkbox of a result that can’t be added, saying why on hover', async () => {
+      const user = userEvent.setup()
+      renderSearch({
+        initialPage: page([
+          licensable('a', 'Volts'),
+          makeResult({ id: 'store', title: 'Store work' }),
+          makeResult({
+            id: 'nb',
+            title: 'Not licensable',
+            content_type: 'brokered',
+            url: 'https://inc.com/x',
+            publication: { ...FUTURISM, id: 'p-2', name: 'Inc', bulk_licensable: false },
+          }),
+        ]),
+      })
+      expect(screen.getByRole('checkbox', { name: 'Select Volts' })).toBeEnabled()
+
+      const store = screen.getByRole('checkbox', {
+        name: "Store work can't be added: Sold by a LedeWire store, not a Publication",
+      })
+      expect(store).toBeDisabled()
+      expect(store).not.toBeChecked()
+      expect(store.parentElement).toHaveAttribute(
+        'title',
+        'Sold by a LedeWire store, not a Publication',
+      )
+      const inc = screen.getByRole('checkbox', {
+        name: "Not licensable can't be added: Inc doesn't license in bulk",
+      })
+      expect(inc).toBeDisabled()
+      expect(inc.parentElement).toHaveAttribute('title', "Inc doesn't license in bulk")
+
+      await user.click(store)
+      await user.click(inc)
+      expect(store).not.toBeChecked()
+      expect(addButton()).toHaveTextContent('Add 0 to selection')
+      expect(addButton()).toBeDisabled()
+    })
+
+    it('explains the checkboxes above the results', () => {
+      renderSearch({ initialPage: page([licensable('a', 'Volts')]) })
+      expect(
+        screen.getByText(
+          "Tick articles to add them to a bulk export. Greyed-out ones can't be licensed in bulk — hover for why.",
+        ),
+      ).toBeInTheDocument()
+    })
+
+    it('has no checkbox note before anything is searched', () => {
+      renderSearch()
+      expect(screen.queryByText(/Tick articles/)).not.toBeInTheDocument()
+    })
+
+    it('offers an enabled checkbox only on a bulk-licensable result with a web URL', () => {
       renderSearch({
         initialPage: page([
           licensable('a', 'Volts'),
@@ -365,7 +418,13 @@ describe('ContentSearch', () => {
         ]),
       })
       expect(screen.getByRole('checkbox', { name: 'Select Volts' })).toBeInTheDocument()
-      expect(screen.getAllByRole('checkbox')).toHaveLength(1)
+      expect(screen.getAllByRole('checkbox')).toHaveLength(4)
+      expect(
+        screen.getAllByRole('checkbox').filter((c) => !c.hasAttribute('disabled')),
+      ).toHaveLength(1)
+      expect(
+        screen.getByRole('checkbox', { name: "No URL can't be added: Has no web link" }),
+      ).toBeDisabled()
     })
 
     it('adds every ticked result to the Selection, without buying, then clears the ticks', async () => {

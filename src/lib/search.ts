@@ -66,12 +66,32 @@ export function resultSource(result: ContentSearchResultWithPublication): string
   return result.store_name
 }
 
+/** Whether a search result can go in the bulk-export Selection: the work it adds, or why not. */
+export type Selectability = { work: SelectedWork; reason: null } | { work: null; reason: string }
+
 /**
- * A search result as a work for the bulk-export Selection, or null when it can't be one: only a
- * work with a web URL, from a Publication that licenses in bulk, can come back in an export.
+ * Only a work with a web URL, from a Publication that licenses in bulk, can come back in an
+ * export. The reason a result can't is the first of these that applies, worded for the buyer.
  */
-export function selectableWork(result: ContentSearchResultWithPublication): SelectedWork | null {
+export function selectability(result: ContentSearchResultWithPublication): Selectability {
   const { publication, url } = result
-  if (!publication?.bulk_licensable || !isWebUrl(url)) return null
-  return { url, publicationId: publication.id, publicationName: publication.name }
+  const cannot = (reason: string): Selectability => ({ work: null, reason })
+  if (!publication) {
+    return cannot(
+      result.content_type === 'brokered'
+        ? "From a site that isn't a listed Publication"
+        : 'Sold by a LedeWire store, not a Publication',
+    )
+  }
+  if (!publication.bulk_licensable) return cannot(`${publication.name} doesn't license in bulk`)
+  if (!isWebUrl(url)) return cannot('Has no web link')
+  return {
+    work: { url, publicationId: publication.id, publicationName: publication.name },
+    reason: null,
+  }
+}
+
+/** A search result as a work for the bulk-export Selection, or null when it can't be one. */
+export function selectableWork(result: ContentSearchResultWithPublication): SelectedWork | null {
+  return selectability(result).work
 }
