@@ -91,7 +91,7 @@ describe('POST /api/api-keys', () => {
   })
 
   it('returns 400 when name is missing', async () => {
-    const res = await POST(makePostRequest({ spending_limit_cents: 1000 }))
+    const res = await POST(makePostRequest({}))
     expect(res.status).toBe(400)
     expect(await res.json()).toMatchObject({ error: 'name is required' })
   })

@@ -48,11 +48,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 
   // The SDK takes role, the cap, or both, never neither, which the check above rules out.
+  const newRole = role as Role | undefined
   const cap = daily_spend_limit_cents as number | undefined
   const changes: CompanyMemberUpdateRequest =
     cap === undefined
-      ? { role: role as Role }
-      : { daily_spend_limit_cents: cap, ...(role !== undefined && { role: role as Role }) }
+      ? { role: newRole! }
+      : { daily_spend_limit_cents: cap, ...(newRole !== undefined && { role: newRole }) }
 
   try {
     const client = await createBuyerClient()

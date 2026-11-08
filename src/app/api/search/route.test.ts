@@ -7,7 +7,7 @@ vi.mock('@/lib/route-auth', () => ({ requireAuthForRoute: vi.fn() }))
 vi.mock('@/lib/ledewire', () => ({ createBuyerClient: vi.fn() }))
 
 import { GET } from './route'
-import { AuthError, LedewireError } from '@ledewire/node'
+import { AuthError, InvalidCursorError, LedewireError } from '@ledewire/node'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 
@@ -73,10 +73,11 @@ describe('GET /api/search', () => {
     expect(res.headers.get('Retry-After')).toBe('42')
   })
 
-  it('keeps a 422 (an expired cursor) a 422', async () => {
-    mockSearch.mockRejectedValue(new LedewireError('cursor expired', 422))
+  it('passes a refused cursor on as a 422 of type invalid_cursor, which Load more resets on', async () => {
+    mockSearch.mockRejectedValue(new InvalidCursorError('cursor expired'))
     const res = await call('?q=x&cursor=old')
     expect(res.status).toBe(422)
+    expect(await res.json()).toMatchObject({ type: 'invalid_cursor' })
   })
 
   it('maps an expired session (AuthError) to 401', async () => {
