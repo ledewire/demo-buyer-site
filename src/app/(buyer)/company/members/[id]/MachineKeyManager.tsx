@@ -50,8 +50,7 @@ type Props = {
   /** The collection route: POST issues a key, DELETE `${apiPath}/<key id>` revokes one. */
   apiPath: string
 } & (
-  | { kind: 'buyer'; initialKeys: BuyerMachineKey[] }
-  | { kind: 'mcp'; initialKeys: McpMachineKey[] }
+  { kind: 'buyer'; initialKeys: BuyerMachineKey[] } | { kind: 'mcp'; initialKeys: McpMachineKey[] }
 )
 
 /** Lists, issues and revokes a Machine user's keys of one kind. */

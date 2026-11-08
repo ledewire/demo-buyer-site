@@ -253,8 +253,7 @@ export default function ContentSearch({
  * for a result that can't go in it, why not.
  */
 type SelectionCheckbox =
-  | { inSelection: boolean; ticked: boolean; onToggle: () => void }
-  | { unavailable: string }
+  { inSelection: boolean; ticked: boolean; onToggle: () => void } | { unavailable: string }
 
 const CHECKBOX_CLASSES = 'rounded-sm border-gray-300 text-indigo-600 disabled:opacity-40'
 
