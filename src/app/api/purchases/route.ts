@@ -40,13 +40,8 @@ export async function GET() {
   }
 }
 
-/**
- * The work to buy, and the price the buyer confirmed for it. The SDK types both as optional,
- * but the API refuses a purchase without either (ledewire/ledewire-js-sdk#64).
- */
-type Order = Required<PurchaseCreateRequest>
-
-async function readOrder(request: NextRequest): Promise<Order | null> {
+/** The work to buy, and the price the buyer confirmed for it. */
+async function readOrder(request: NextRequest): Promise<PurchaseCreateRequest | null> {
   try {
     const { content_id, price_cents } = (await request.json()) ?? {}
     const validId = typeof content_id === 'string' && content_id

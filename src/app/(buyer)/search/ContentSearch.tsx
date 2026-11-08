@@ -87,16 +87,16 @@ export default function ContentSearch({
         setRetryIn(retryAfterSeconds(res.headers.get('Retry-After')))
         return
       }
-      if (res.status === 422) {
-        // A stale or mismatched cursor: drop it and what it paged through, so
-        // the next search starts again from page one.
+      const data = await res.json()
+      if (data.type === 'invalid_cursor') {
+        // A stale or mismatched cursor (the SDK's InvalidCursorError): drop it and
+        // what it paged through, so the next search starts again from page one.
         setResults(null)
         setNextCursor(null)
         setPartial(false)
         setError('This search expired — search again')
         return
       }
-      const data = await res.json()
       if (!res.ok) {
         // Worded as the server-rendered first page words it (page.tsx).
         setError(data.error ? `API error: ${data.error}` : 'Search failed')
