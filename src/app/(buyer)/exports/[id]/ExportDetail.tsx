@@ -20,6 +20,7 @@ const EXCLUSION_LABELS: Record<Exclusion['reason'], string> = {
   excluded_insufficient_rights: 'Insufficient licensing rights',
   excluded_above_price_ceiling: 'Above the price ceiling',
   excluded_rate_unavailable: 'Price temporarily unavailable',
+  excluded_not_sold_in_bulk: 'SEC filing (sold one at a time, not in bulk)',
 }
 
 const STATUS_CLASSES: Record<AcquisitionResponse['status'], string> = {

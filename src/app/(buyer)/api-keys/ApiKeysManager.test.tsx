@@ -10,7 +10,6 @@ function makeKey(overrides: Partial<UserApiKey> = {}): UserApiKey {
     name: 'My Agent',
     key: 'bktst_abc123',
     last_used_at: null,
-    spending_limit_cents: null,
     created_at: '2026-01-01T00:00:00Z',
     ...overrides,
   }
@@ -69,13 +68,26 @@ describe('ApiKeysManager', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Name already exists'))
   })
 
-  it('formats spending limit as dollars', () => {
-    render(<ApiKeysManager initialKeys={[makeKey({ spending_limit_cents: 1000 })]} />)
-    expect(screen.getByText('$10.00')).toBeInTheDocument()
+  it('creates a key from its name alone, with no spending-limit field', async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ key: 'k', secret: 's' }),
+      } as Response)
+      .mockResolvedValueOnce({ ok: true, json: async () => [] } as Response)
+    render(<ApiKeysManager initialKeys={[]} />)
+    await userEvent.click(screen.getByRole('button', { name: /create api key/i }))
+    expect(screen.queryByLabelText(/spending limit/i)).not.toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText(/name/i), 'New Agent')
+    await userEvent.click(screen.getByRole('button', { name: /^create$/i }))
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
+    const [, init] = vi.mocked(global.fetch).mock.calls[0]
+    expect(JSON.parse(init!.body as string)).toEqual({ name: 'New Agent' })
   })
 
-  it('shows — for no spending limit', () => {
-    render(<ApiKeysManager initialKeys={[makeKey({ spending_limit_cents: null })]} />)
-    expect(screen.getByText('—')).toBeInTheDocument()
+  it('has no Spend limit column', () => {
+    render(<ApiKeysManager initialKeys={[makeKey()]} />)
+    expect(screen.queryByRole('columnheader', { name: /spend limit/i })).not.toBeInTheDocument()
   })
 })

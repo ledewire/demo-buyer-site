@@ -54,6 +54,18 @@ describe('ExportDetail', () => {
     expect(screen.getByText('Duplicate URL')).toBeInTheDocument()
   })
 
+  it('labels an SEC filing excluded because it is sold only one at a time', () => {
+    render(
+      <ExportDetail
+        initialAcquisition={makeAcq({
+          exclusions: [{ reason: 'excluded_not_sold_in_bulk', count: 1 }],
+        })}
+      />,
+    )
+    expect(screen.getByText('SEC filing (sold one at a time, not in bulk)')).toBeInTheDocument()
+    expect(screen.queryByText('excluded_not_sold_in_bulk')).not.toBeInTheDocument()
+  })
+
   it('shows pending and failed quote states', () => {
     const { rerender } = render(
       <ExportDetail initialAcquisition={makeAcq({ quote_state: 'pending' })} />,

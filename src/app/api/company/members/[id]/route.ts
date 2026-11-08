@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { CompanyMemberUpdateRequest } from '@ledewire/node'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { ledewireErrorResponse } from '@/lib/route-errors'
@@ -46,14 +47,16 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     )
   }
 
+  // The SDK takes role, the cap, or both, never neither, which the check above rules out.
+  const cap = daily_spend_limit_cents as number | undefined
+  const changes: CompanyMemberUpdateRequest =
+    cap === undefined
+      ? { role: role as Role }
+      : { daily_spend_limit_cents: cap, ...(role !== undefined && { role: role as Role }) }
+
   try {
     const client = await createBuyerClient()
-    const member = await client.company.members.update(id, {
-      ...(role !== undefined && { role: role as Role }),
-      ...(daily_spend_limit_cents !== undefined && {
-        daily_spend_limit_cents: daily_spend_limit_cents as number,
-      }),
-    })
+    const member = await client.company.members.update(id, changes)
     return NextResponse.json(member)
   } catch (err) {
     return ledewireErrorResponse(err, 'company/members PATCH')

@@ -32,17 +32,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
 
-  const { name, spending_limit_cents } = body as {
-    name?: string
-    spending_limit_cents?: number | null
-  }
+  // A key has no spend limit of its own (the API refuses one); the Buyer's daily Spend cap limits it.
+  const { name } = body as { name?: string }
   if (!name) {
     return NextResponse.json({ error: 'name is required' }, { status: 400 })
   }
 
   try {
     const client = await createBuyerClient()
-    const result = await client.user.apiKeys.create({ name, spending_limit_cents })
+    const result = await client.user.apiKeys.create({ name })
     return NextResponse.json(result, { status: 201 })
   } catch (err) {
     if (err instanceof AuthError)
