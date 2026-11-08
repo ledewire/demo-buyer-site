@@ -186,9 +186,20 @@ describe('ContentSearch', () => {
     expect(screen.getByRole('button', { name: 'Search' })).toBeEnabled()
   })
 
-  it('a 422 on Load more says the search expired and resets to page one', async () => {
+  it('a 422 of any other type on Load more is an ordinary error and keeps the results', async () => {
+    renderSearch({ initialPage: page([makeResult()], { next_cursor: 'next' }) })
+    mockFetchOnce(422, { error: 'limit is too large', type: 'validation_error' })
+    await userEvent.click(loadMore())
+
+    expect(await screen.findByText('API error: limit is too large')).toBeInTheDocument()
+    expect(screen.queryByText('This search expired — search again')).not.toBeInTheDocument()
+    expect(screen.getByText('Ocean heat')).toBeInTheDocument()
+    expect(loadMore()).toBeInTheDocument()
+  })
+
+  it('an invalid_cursor refusal on Load more says the search expired and resets to page one', async () => {
     renderSearch({ initialPage: page([makeResult()], { next_cursor: 'stale' }) })
-    mockFetchOnce(422, { error: 'cursor expired' })
+    mockFetchOnce(422, { error: 'cursor expired', type: 'invalid_cursor' })
     await userEvent.click(loadMore())
 
     expect(await screen.findByText('This search expired — search again')).toBeInTheDocument()

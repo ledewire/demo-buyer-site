@@ -1,10 +1,10 @@
-import type { BuyerContentSearchRequest, ContentSearchResultWithPublication } from '@ledewire/node'
+import type { ContentSearchRequest, ContentSearchResultWithPublication } from '@ledewire/node'
 import { parseCapCents } from './spend-cap'
 import { isWebUrl } from './web-url'
 import type { SelectedWork } from './export-selection'
 
 /** The filters a search was run with; Load more must send the same ones with its cursor. */
-export type SearchFilters = Pick<BuyerContentSearchRequest, 'max_price_cents'> & { query: string }
+export type SearchFilters = Pick<ContentSearchRequest, 'max_price_cents'> & { query: string }
 
 export const INVALID_MAX_PRICE_MESSAGE = 'Enter a max price of $0 or more'
 

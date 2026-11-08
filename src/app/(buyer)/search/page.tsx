@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { AuthError, LedewireError } from '@ledewire/node'
+import { AuthError, LedewireError, RateLimitError } from '@ledewire/node'
 import type { ContentSearchResponse } from '@ledewire/node'
 import { requireAuth } from '@/lib/auth'
 import { createBuyerClient } from '@/lib/ledewire'
@@ -27,11 +27,9 @@ async function searchFirstPage(q: string, maxPrice: string): Promise<FirstPage> 
     return { kind: 'page', page: await client.content.search(filters) }
   } catch (err) {
     if (err instanceof AuthError) redirect('/login')
-    if (err instanceof LedewireError) {
-      if (err.statusCode === 429)
-        return { kind: 'rateLimited', retryAfter: retryAfterSeconds(err.retryAfter) }
-      return { kind: 'error', error: `API error: ${err.message}` }
-    }
+    if (err instanceof RateLimitError)
+      return { kind: 'rateLimited', retryAfter: retryAfterSeconds(err.retryAfter) }
+    if (err instanceof LedewireError) return { kind: 'error', error: `API error: ${err.message}` }
     throw err
   }
 }

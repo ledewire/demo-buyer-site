@@ -91,7 +91,7 @@ describe('POST /api/api-keys', () => {
   })
 
   it('returns 400 when name is missing', async () => {
-    const res = await POST(makePostRequest({ spending_limit_cents: 1000 }))
+    const res = await POST(makePostRequest({}))
     expect(res.status).toBe(400)
     expect(await res.json()).toMatchObject({ error: 'name is required' })
   })
@@ -99,9 +99,15 @@ describe('POST /api/api-keys', () => {
   it('creates a key and returns 201', async () => {
     const newKey = { id: 'k2', name: 'Agent', key: 'bktst_xyz' }
     mockCreate.mockResolvedValue(newKey)
-    const res = await POST(makePostRequest({ name: 'Agent', spending_limit_cents: 500 }))
+    const res = await POST(makePostRequest({ name: 'Agent' }))
     expect(res.status).toBe(201)
     expect(await res.json()).toEqual(newKey)
+  })
+
+  it('sends the SDK only the name, never a spending limit the API would refuse', async () => {
+    mockCreate.mockResolvedValue({ id: 'k2', name: 'Agent', key: 'bktst_xyz' })
+    await POST(makePostRequest({ name: 'Agent', spending_limit_cents: 500 }))
+    expect(mockCreate).toHaveBeenCalledWith({ name: 'Agent' })
   })
 
   it('returns 401 on AuthError', async () => {

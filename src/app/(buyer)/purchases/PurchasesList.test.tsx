@@ -13,6 +13,7 @@ function makePurchase(overrides: Partial<PurchaseResponse> = {}): PurchaseRespon
       title: 'Article Title',
       resource_url: null,
       publication: null,
+      filing: null,
     },
     buyer_id: 'b-1',
     buyer: { id: 'b-1', name: 'Alice' },
@@ -21,6 +22,8 @@ function makePurchase(overrides: Partial<PurchaseResponse> = {}): PurchaseRespon
     amount_cents: 499,
     timestamp: '2026-01-15T10:00:00Z',
     status: 'completed',
+    license: null,
+    payment_key_id: null,
     ...overrides,
   }
 }
@@ -60,6 +63,7 @@ describe('PurchasesList', () => {
               title: 'Article 1',
               resource_url: null,
               publication: null,
+              filing: null,
             },
           }),
           makePurchase({
@@ -71,6 +75,7 @@ describe('PurchasesList', () => {
               title: 'Article 2',
               resource_url: null,
               publication: null,
+              filing: null,
             },
           }),
         ]}

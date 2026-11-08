@@ -21,6 +21,7 @@ function makePublication(overrides: Partial<Publication> = {}): Publication {
     name: 'The Daily',
     topics: [],
     domains: ['daily.example'],
+    homepage: null,
     bulk_licensable: false,
     coverage_horizon: null,
     ...overrides,

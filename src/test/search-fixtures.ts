@@ -22,6 +22,7 @@ export function makeResult(
     last_modified_date: null,
     citation_count: null,
     publication: null,
+    filing: null,
     ...overrides,
   }
 }

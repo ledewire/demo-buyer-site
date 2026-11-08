@@ -10,7 +10,7 @@ vi.mock('@/lib/auth', () => ({ requireAuth: vi.fn() }))
 vi.mock('@/lib/ledewire', () => import('@/__mocks__/ledewire-client'))
 
 import SearchPage from './page'
-import { AuthError, LedewireError } from '@ledewire/node'
+import { AuthError, LedewireError, RateLimitError } from '@ledewire/node'
 import type { ContentSearchResponse } from '@ledewire/node'
 import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
@@ -39,6 +39,7 @@ const onePage: ContentSearchResponse = {
       last_modified_date: null,
       citation_count: null,
       publication: null,
+      filing: null,
     },
   ],
   next_cursor: null,
@@ -88,7 +89,7 @@ describe('SearchPage', () => {
 
   it('a 429 on the first page shows the wait in place of the results, and keeps the form', async () => {
     mockContent.search.mockRejectedValue(
-      new LedewireError('slow down', 429, undefined, undefined, undefined, 30) as never,
+      new RateLimitError('slow down', undefined, undefined, undefined, 30) as never,
     )
     await renderPage({ q: 'x' })
     expect(screen.getByText('Too many searches — try again in 30 s')).toBeInTheDocument()
@@ -100,7 +101,7 @@ describe('SearchPage', () => {
 
   it('a 429 with no usable wait still shows a wait, of a minute', async () => {
     mockContent.search.mockRejectedValue(
-      new LedewireError('slow down', 429, undefined, undefined, undefined, 0) as never,
+      new RateLimitError('slow down', undefined, undefined, undefined, 0) as never,
     )
     await renderPage({ q: 'x' })
     expect(screen.getByText('Too many searches — try again in 60 s')).toBeInTheDocument()

@@ -23,6 +23,7 @@ const publication: Publication = {
   name: 'The Daily',
   topics: [],
   domains: ['daily.example'],
+  homepage: null,
   bulk_licensable: true,
   coverage_horizon: null,
 }

@@ -80,6 +80,15 @@ describe('/api/company/members/[id]', () => {
       expect(mockUpdate).toHaveBeenCalledWith('mem-1', { daily_spend_limit_cents: 0 })
     })
 
+    it('updates the role and the daily cap together', async () => {
+      mockUpdate.mockResolvedValue({ id: 'mem-1' })
+      await PATCH(patchRequest({ role: 'member', daily_spend_limit_cents: 500 }), params)
+      expect(mockUpdate).toHaveBeenCalledWith('mem-1', {
+        role: 'member',
+        daily_spend_limit_cents: 500,
+      })
+    })
+
     it('surfaces a 422 from the API', async () => {
       mockUpdate.mockRejectedValue(new LedewireError('would leave no admin', 422))
       const res = await PATCH(patchRequest({ role: 'member' }), params)

@@ -17,7 +17,6 @@ export default function ApiKeysManager({ initialKeys }: Props) {
   const [newKeyResult, setNewKeyResult] = useState<NewKeyResult | null>(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [name, setName] = useState('')
-  const [spendingLimit, setSpendingLimit] = useState('')
   const [revoking, setRevoking] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,14 +26,10 @@ export default function ApiKeysManager({ initialKeys }: Props) {
     setError(null)
     setCreating(true)
     try {
-      const body: { name: string; spending_limit_cents?: number } = { name }
-      const limitCents = spendingLimit ? Math.round(parseFloat(spendingLimit) * 100) : null
-      if (limitCents && limitCents > 0) body.spending_limit_cents = limitCents
-
       const res = await fetch('/api/api-keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ name }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -43,7 +38,6 @@ export default function ApiKeysManager({ initialKeys }: Props) {
         setNewKeyResult({ key: data.key, secret: data.secret })
         setShowCreateForm(false)
         setName('')
-        setSpendingLimit('')
         const listRes = await fetch('/api/api-keys')
         if (listRes.ok) setKeys(await listRes.json())
       }
@@ -132,26 +126,6 @@ export default function ApiKeysManager({ initialKeys }: Props) {
               className="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
           </div>
-          <div>
-            <label htmlFor="spending-limit" className="block text-sm font-medium text-gray-700">
-              Spending limit (USD, optional)
-            </label>
-            <div className="relative mt-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
-                $
-              </span>
-              <input
-                id="spending-limit"
-                type="number"
-                min="0"
-                step="0.01"
-                value={spendingLimit}
-                onChange={(e) => setSpendingLimit(e.target.value)}
-                placeholder="No limit"
-                className="pl-7 block w-full rounded-md border-gray-300 shadow-xs focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              />
-            </div>
-          </div>
           <div className="flex space-x-3">
             <button
               type="submit"
@@ -187,9 +161,6 @@ export default function ApiKeysManager({ initialKeys }: Props) {
                   Key
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Spend limit
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Last used
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -203,11 +174,6 @@ export default function ApiKeysManager({ initialKeys }: Props) {
                 <tr key={k.id}>
                   <td className="px-4 py-3 text-sm text-gray-800">{k.name}</td>
                   <td className="px-4 py-3 text-sm font-mono text-gray-600">{k.key}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {k.spending_limit_cents != null
-                      ? `$${(k.spending_limit_cents / 100).toFixed(2)}`
-                      : '—'}
-                  </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : 'Never'}
                   </td>

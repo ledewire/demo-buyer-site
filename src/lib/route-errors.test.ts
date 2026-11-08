@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { AuthError, LedewireError, SpendCapReachedError } from '@ledewire/node'
+import { AuthError, LedewireError, RateLimitError, SpendCapReachedError } from '@ledewire/node'
 import { ledewireErrorResponse } from './route-errors'
 
 describe('ledewireErrorResponse', () => {
@@ -20,7 +20,7 @@ describe('ledewireErrorResponse', () => {
 
   it('carries retryAfter on a 429 as a Retry-After header', () => {
     const res = ledewireErrorResponse(
-      new LedewireError('slow', 429, undefined, undefined, undefined, 30),
+      new RateLimitError('slow', undefined, undefined, undefined, 30),
       'test',
     )
     expect(res.status).toBe(429)
@@ -28,7 +28,7 @@ describe('ledewireErrorResponse', () => {
   })
 
   it('sets no Retry-After when the error has no retryAfter', () => {
-    const res = ledewireErrorResponse(new LedewireError('slow', 429), 'test')
+    const res = ledewireErrorResponse(new RateLimitError('slow'), 'test')
     expect(res.headers.get('Retry-After')).toBeNull()
   })
 
