@@ -1,14 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { PublicationWork } from '@ledewire/node'
 import WorksBrowser from './WorksBrowser'
 
-function page(works: { url: string; last_mod: string | null }[], extra = {}) {
+type WorkFixture = { url: string; last_mod: string | null } & Partial<PublicationWork>
+
+function page(works: WorkFixture[], extra = {}) {
   return {
     publication_id: 'pub-1',
     domain: 'a.example',
     date_filter: 'applied',
-    works,
+    works: works.map((w) => ({
+      page_kind: 'article',
+      page_kind_basis: 'rule',
+      topics: [],
+      topics_basis: 'inherited',
+      ...w,
+    })),
     next_cursor: null,
     ...extra,
   }
@@ -51,6 +60,75 @@ describe('WorksBrowser', () => {
     expect(global.fetch).toHaveBeenCalledWith(
       '/api/publications/pub-1/works?from=2026-01-01&to=2026-01-31',
     )
+  })
+
+  it("shows each work's page kind and topics as readable labels", async () => {
+    mockFetchOnce(
+      200,
+      page([
+        {
+          url: 'https://a.example/1',
+          last_mod: null,
+          page_kind: 'section_index',
+          topics: ['sports', 'books-and-literature'],
+        },
+      ]),
+    )
+    renderBrowser()
+    await userEvent.click(screen.getByRole('button', { name: 'Find articles' }))
+    const row = (await screen.findByText('https://a.example/1')).closest('tr')!
+    expect(within(row).getByText('Section index')).toBeInTheDocument()
+    expect(within(row).getByText('Sports')).toBeInTheDocument()
+    expect(within(row).getByText('Books and literature')).toBeInTheDocument()
+  })
+
+  it('searches with the chosen page kind', async () => {
+    mockFetchOnce(200, page([{ url: 'https://a.example/1', last_mod: null }]))
+    renderBrowser()
+    await userEvent.selectOptions(screen.getByLabelText('Page kind'), 'Article')
+    await userEvent.click(screen.getByRole('button', { name: 'Find articles' }))
+    await screen.findByText('https://a.example/1')
+    expect(global.fetch).toHaveBeenCalledWith('/api/publications/pub-1/works?page_kind=article')
+  })
+
+  it('changing the page kind after a search reloads from the first page', async () => {
+    mockFetchOnce(
+      200,
+      page([{ url: 'https://a.example/1', last_mod: null }], { next_cursor: 'c2' }),
+    )
+    mockFetchOnce(
+      200,
+      page([{ url: 'https://a.example/2', last_mod: null }], { next_cursor: 'c3' }),
+    )
+    mockFetchOnce(200, page([{ url: 'https://a.example/9', last_mod: null }]))
+    renderBrowser()
+    await userEvent.type(screen.getByLabelText('From'), '2026-01-01')
+    await userEvent.click(screen.getByRole('button', { name: 'Find articles' }))
+    await screen.findByText('https://a.example/1')
+    await userEvent.click(screen.getByRole('button', { name: 'Load more' }))
+    await screen.findByText('https://a.example/2')
+
+    await userEvent.selectOptions(screen.getByLabelText('Page kind'), 'Article')
+
+    expect(await screen.findByText('https://a.example/9')).toBeInTheDocument()
+    expect(global.fetch).toHaveBeenLastCalledWith(
+      '/api/publications/pub-1/works?from=2026-01-01&page_kind=article',
+    )
+    expect(screen.queryByText('https://a.example/1')).not.toBeInTheDocument()
+    expect(screen.queryByText('https://a.example/2')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
+  })
+
+  it('says an empty page with more pages behind it is not the end', async () => {
+    mockFetchOnce(200, page([], { next_cursor: 'c2' }))
+    renderBrowser()
+    await userEvent.selectOptions(screen.getByLabelText('Page kind'), 'Media')
+    await userEvent.click(screen.getByRole('button', { name: 'Find articles' }))
+    expect(
+      await screen.findByText('No matching articles on this page — load more to keep looking.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('No articles found.')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Load more' })).toBeInTheDocument()
   })
 
   it('selects a single work and all shown works', async () => {

@@ -5,6 +5,13 @@ import Link from 'next/link'
 import type { PublicationWork, PublicationWorkListResponse } from '@ledewire/node'
 import { useExportSelection } from '@/lib/export-selection'
 import { formatDate } from '@/lib/format'
+import { PAGE_KIND_LABELS, topicLabel, type PageKind } from '@/lib/work-labels'
+
+interface Query {
+  from: string
+  to: string
+  pageKind: PageKind | ''
+}
 
 interface Props {
   publicationId: string
@@ -16,25 +23,27 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
   const selection = useExportSelection()
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [pageKind, setPageKind] = useState<PageKind | ''>('')
   const [works, setWorks] = useState<PublicationWork[] | null>(null)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [dateFilter, setDateFilter] = useState<PublicationWorkListResponse['date_filter'] | null>(
     null,
   )
-  // The range the loaded results came from — "Load more" must reuse it even if
+  // The query the loaded results came from — "Load more" must reuse it even if
   // the inputs have since been edited.
-  const [loadedRange, setLoadedRange] = useState({ from: '', to: '' })
+  const [loadedQuery, setLoadedQuery] = useState<Query>({ from: '', to: '', pageKind: '' })
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load(range: { from: string; to: string }, cursor?: string) {
+  async function load(query: Query, cursor?: string) {
     setError(null)
     setLoading(true)
     try {
       const qs = new URLSearchParams()
-      if (range.from) qs.set('from', range.from)
-      if (range.to) qs.set('to', range.to)
+      if (query.from) qs.set('from', query.from)
+      if (query.to) qs.set('to', query.to)
+      if (query.pageKind) qs.set('page_kind', query.pageKind)
       if (cursor) qs.set('cursor', cursor)
       const res = await fetch(
         `/api/publications/${encodeURIComponent(publicationId)}/works?${qs.toString()}`,
@@ -52,7 +61,7 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
       setWorks((prev) => (cursor && prev ? [...prev, ...page.works] : page.works))
       setNextCursor(page.next_cursor)
       setDateFilter(page.date_filter)
-      setLoadedRange(range)
+      setLoadedQuery(query)
     } catch {
       setError('Network error — please try again')
     } finally {
@@ -62,7 +71,14 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
-    load({ from, to })
+    load({ from, to, pageKind })
+  }
+
+  // Once results are showing, a new kind reloads them from the first page (no
+  // cursor) over the range they came from.
+  function handlePageKindChange(kind: PageKind | '') {
+    setPageKind(kind)
+    if (works) load({ ...loadedQuery, pageKind: kind })
   }
 
   const shown = useMemo(() => {
@@ -106,6 +122,24 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
             onChange={(e) => setTo(e.target.value)}
             className="mt-1 rounded-md border-gray-300 text-sm shadow-xs"
           />
+        </div>
+        <div>
+          <label htmlFor="works-page-kind" className="block text-xs font-medium text-gray-600">
+            Page kind
+          </label>
+          <select
+            id="works-page-kind"
+            value={pageKind}
+            onChange={(e) => handlePageKindChange(e.target.value as PageKind | '')}
+            className="mt-1 rounded-md border-gray-300 text-sm shadow-xs"
+          >
+            <option value="">All kinds</option>
+            {Object.entries(PAGE_KIND_LABELS).map(([kind, label]) => (
+              <option key={kind} value={kind}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
         <button
           type="submit"
@@ -163,7 +197,12 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
           </div>
 
           {shown.length === 0 ? (
-            <p className="text-sm text-gray-500 py-8 text-center">No articles found.</p>
+            <p className="text-sm text-gray-500 py-8 text-center">
+              {/* A page_kind filter runs per catalog page, so an empty page isn't the end. */}
+              {nextCursor
+                ? 'No matching articles on this page — load more to keep looking.'
+                : 'No articles found.'}
+            </p>
           ) : (
             <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -174,6 +213,12 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Article
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Kind
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Topics
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Last modified
@@ -207,6 +252,21 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
                             {w.url}
                           </a>
                         </td>
+                        <td className="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">
+                          {PAGE_KIND_LABELS[w.page_kind]}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          <ul className="flex flex-wrap gap-1">
+                            {w.topics.map((t) => (
+                              <li
+                                key={t}
+                                className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700 whitespace-nowrap"
+                              >
+                                {topicLabel(t)}
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
                         <td className="px-4 py-2 text-sm text-gray-500 whitespace-nowrap">
                           {formatDate(w.last_mod)}
                         </td>
@@ -221,7 +281,7 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
           {nextCursor && (
             <button
               type="button"
-              onClick={() => load(loadedRange, nextCursor)}
+              onClick={() => load(loadedQuery, nextCursor)}
               disabled={loading}
               className="px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
             >
