@@ -15,8 +15,8 @@ export default async function PurchasesPage() {
     const [purchases, membership, paymentKeys] = await Promise.all([
       client.purchases.list().then(listItems),
       getCompanyMembership(),
-      // Only names the key that paid: when the API refuses the list (a Machine user is refused
-      // its own keys) the purchases still render, saying just that a Payment key paid.
+      // The key list only names the key that paid, so when the API refuses it the purchases
+      // still render, saying just that a Payment key paid.
       client.user.paymentKeys.list().catch((err: unknown) => {
         if (err instanceof LedewireError && !(err instanceof AuthError)) return null
         throw err

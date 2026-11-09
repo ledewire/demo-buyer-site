@@ -63,7 +63,7 @@ describe('PurchasesPage', () => {
 
   it.each([
     ['an API error', new LedewireError('Service unavailable', 503)],
-    ["a Machine user's refusal", new ForbiddenError('Machine users cannot manage their own keys')],
+    ['a refusal', new ForbiddenError('Invalid Role')],
   ])(
     'still renders the purchases, with no error, when the key list fails with %s',
     async (_label, err) => {
