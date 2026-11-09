@@ -3,7 +3,7 @@
  * (a `/`, a `.`, an encoded separator, a CR/LF) is refused before it reaches an upstream
  * path or a response header.
  */
-export function isPlainId(id: string): boolean {
+export function isPurchaseId(id: string): boolean {
   return /^[A-Za-z0-9_-]+$/.test(id)
 }
 

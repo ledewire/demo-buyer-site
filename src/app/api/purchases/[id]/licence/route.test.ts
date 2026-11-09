@@ -78,4 +78,12 @@ describe('GET /api/purchases/[id]/licence', () => {
     mockLicenseDocument.mockRejectedValue(new NotFoundError('no licence document'))
     expect((await call()).status).toBe(404)
   })
+
+  it('returns 500 on an unexpected error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockLicenseDocument.mockRejectedValue(new Error('boom'))
+    const res = await call()
+    expect(res.status).toBe(500)
+    expect(await res.json()).toEqual({ error: 'An unexpected error occurred' })
+  })
 })

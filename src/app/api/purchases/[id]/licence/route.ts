@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { ledewireErrorResponse } from '@/lib/route-errors'
-import { isPlainId, licenceFilename } from '@/lib/licence-document'
+import { isPurchaseId, licenceFilename } from '@/lib/licence-document'
 
 interface Params {
   params: Promise<{ id: string }>
@@ -20,7 +20,7 @@ export async function GET(_request: Request, { params }: Params) {
   if (authResult instanceof NextResponse) return authResult
 
   const { id } = await params
-  if (!isPlainId(id)) {
+  if (!isPurchaseId(id)) {
     return NextResponse.json({ error: 'Invalid purchase id' }, { status: 400 })
   }
 
