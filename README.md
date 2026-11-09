@@ -78,7 +78,7 @@ src/
 │   ├── ledewire.ts      # createBuyerClient() — session-backed @ledewire/node client
 │   ├── session.ts       # iron-session setup and SessionData type
 │   └── config.ts        # Validated environment config
-├── proxy.ts            # Next proxy (was middleware): cookie presence check on buyer routes
+├── proxy.ts             # Next proxy (was middleware): cookie presence check on buyer routes
 └── __mocks__/
     └── ledewire-client.ts  # Shared Vitest mock for @ledewire/node
 ```

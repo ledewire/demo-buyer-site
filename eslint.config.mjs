@@ -9,7 +9,7 @@ const eslintConfig = [
   security.configs.recommended,
   {
     // eslint-config-next 16 brings eslint-plugin-react-hooks 7, whose React Compiler rules
-    // flag code that passed on 15. Off until adopting them is its own change.
+    // flag code that passed on 15. Off until #86 adopts them.
     rules: {
       'react-hooks/error-boundaries': 'off',
       'react-hooks/set-state-in-effect': 'off',
