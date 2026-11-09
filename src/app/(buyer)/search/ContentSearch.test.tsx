@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ContentSearchResponse, ContentSearchResultWithPublication } from '@ledewire/node'
-import { makeResult, mockFetchOnce, WALLET } from '@/test/search-fixtures'
+import { makeResult, mockFetchOnce, PREVIEW } from '@/test/search-fixtures'
 import ContentSearch from './ContentSearch'
 
 function page(
@@ -20,7 +20,7 @@ const loadMore = () => screen.getByRole('button', { name: 'Load more' })
 
 /** Buys the first "Ocean heat" result and answers the purchase with `delivery`. */
 async function buy(user: ReturnType<typeof userEvent.setup>, delivery: object, status = 200) {
-  mockFetchOnce(200, WALLET)
+  mockFetchOnce(200, PREVIEW)
   await user.click(screen.getByRole('button', { name: 'Buy Ocean heat' }))
   await screen.findByText('Wallet balance: $10.00')
   mockFetchOnce(status, delivery)
@@ -252,7 +252,7 @@ describe('ContentSearch', () => {
     it('Buy opens a confirmation for that result; Cancel closes it and buys nothing', async () => {
       const user = userEvent.setup()
       renderSearch({ initialPage: page([makeResult()]) })
-      mockFetchOnce(200, WALLET)
+      mockFetchOnce(200, PREVIEW)
       await user.click(screen.getByRole('button', { name: 'Buy Ocean heat' }))
       expect(screen.getByRole('dialog')).toHaveTextContent('Buy Ocean heat?')
       await screen.findByText('Wallet balance: $10.00')
@@ -502,7 +502,7 @@ describe('ContentSearch', () => {
       renderSearch({ initialPage: page([licensable('a', 'Volts'), licensable('b', 'Amps')]) })
       await user.click(screen.getByRole('checkbox', { name: 'Select Volts' }))
 
-      mockFetchOnce(200, WALLET)
+      mockFetchOnce(200, PREVIEW)
       await user.click(screen.getByRole('button', { name: 'Buy Volts' }))
       await screen.findByText('Wallet balance: $10.00')
       mockFetchOnce(200, { content_type: 'markdown', content_body: 'Charged up.' })

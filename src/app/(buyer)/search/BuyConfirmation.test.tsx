@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { makeResult, mockFetchOnce, WALLET } from '@/test/search-fixtures'
+import { makePreview, makeResult, mockFetchOnce, PREVIEW } from '@/test/search-fixtures'
 import BuyConfirmation from './BuyConfirmation'
 
 function renderConfirmation() {
@@ -14,7 +14,7 @@ function renderConfirmation() {
 /** Opens the confirmation for a $10.00 wallet and confirms, answering the buy with `body`. */
 async function confirmWith(body: object, status = 200) {
   const user = userEvent.setup()
-  mockFetchOnce(200, WALLET)
+  mockFetchOnce(200, PREVIEW)
   const handlers = renderConfirmation()
   await screen.findByText('Wallet balance: $10.00')
   mockFetchOnce(status, body)
@@ -30,22 +30,60 @@ describe('BuyConfirmation', () => {
 
   it('shows the price and wallet balance; Cancel buys nothing', async () => {
     const user = userEvent.setup()
-    mockFetchOnce(200, WALLET)
+    mockFetchOnce(200, PREVIEW)
     const { onCancel } = renderConfirmation()
     expect(screen.getByRole('dialog')).toHaveTextContent('$1.25')
     expect(await screen.findByText('Wallet balance: $10.00')).toBeInTheDocument()
-    expect(global.fetch).toHaveBeenCalledWith('/api/wallet/balance')
+    expect(global.fetch).toHaveBeenCalledWith('/api/content/c-1/access')
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onCancel).toHaveBeenCalled()
     expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 
-  it('names the Company instead of a balance for a Company member', async () => {
-    mockFetchOnce(200, { balance_cents: null, remaining_cents: 5000, company_name: 'Acme' })
+  it('names the Company and their Remaining instead of a balance for a Company member', async () => {
+    mockFetchOnce(
+      200,
+      makePreview({ wallet_balance_cents: null, remaining_cents: 5000, company_name: 'Acme' }),
+    )
     renderConfirmation()
     expect(await screen.findByText('Charged to Acme')).toBeInTheDocument()
+    expect(screen.getByText('Your remaining today: $50.00')).toBeInTheDocument()
     expect(screen.queryByText(/Wallet balance/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm purchase' })).toBeEnabled()
+  })
+
+  it('tells a buyer short of funds before they confirm, with a link to /wallet', async () => {
+    mockFetchOnce(
+      200,
+      makePreview({
+        wallet_balance_cents: 50,
+        has_sufficient_funds: false,
+        next_required_action: 'fund_wallet',
+      }),
+    )
+    renderConfirmation()
+    expect(await screen.findByText('Wallet balance: $0.50')).toBeInTheDocument()
+    expect(screen.getByText(/doesn’t cover this price/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /wallet/i })).toHaveAttribute('href', '/wallet')
+    expect(screen.getByRole('button', { name: 'Confirm purchase' })).toBeDisabled()
+  })
+
+  it('tells a capped Company member before they confirm, with no wallet link', async () => {
+    mockFetchOnce(
+      200,
+      makePreview({
+        wallet_balance_cents: null,
+        remaining_cents: 100,
+        company_name: 'Acme',
+        has_sufficient_funds: false,
+      }),
+    )
+    renderConfirmation()
+    expect(await screen.findByText(/doesn’t cover this price/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm purchase' })).toBeDisabled()
+    // A member can't fund the Company wallet, so there's nothing for them there.
+    expect(screen.queryByRole('link', { name: /wallet/i })).not.toBeInTheDocument()
   })
 
   it('says so when the balance can’t be loaded', async () => {
@@ -63,6 +101,21 @@ describe('BuyConfirmation', () => {
       body: JSON.stringify({ content_id: 'c-1', price_cents: 125 }),
     })
     expect(onBought).toHaveBeenCalledWith(delivery)
+  })
+
+  it('shows and quotes the price the preview gave, which affordability was judged against', async () => {
+    const user = userEvent.setup()
+    mockFetchOnce(200, { ...PREVIEW, price_cents: 200 })
+    renderConfirmation()
+    await screen.findByText('Wallet balance: $10.00')
+    expect(screen.getByRole('dialog')).toHaveTextContent('Price: $2.00')
+
+    mockFetchOnce(200, { content_type: 'markdown', content_body: 'Hot seas.' })
+    await user.click(screen.getByRole('button', { name: 'Confirm purchase' }))
+    expect(global.fetch).toHaveBeenLastCalledWith(
+      '/api/purchases',
+      expect.objectContaining({ body: JSON.stringify({ content_id: 'c-1', price_cents: 200 }) }),
+    )
   })
 
   it.each([
@@ -83,7 +136,7 @@ describe('BuyConfirmation', () => {
 
   it('a network failure says so and lets the buyer try again', async () => {
     const user = userEvent.setup()
-    mockFetchOnce(200, WALLET)
+    mockFetchOnce(200, PREVIEW)
     const { onBought } = renderConfirmation()
     await screen.findByText('Wallet balance: $10.00')
     vi.mocked(global.fetch).mockRejectedValueOnce(new TypeError('offline'))
