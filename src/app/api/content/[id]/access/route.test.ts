@@ -7,7 +7,7 @@ vi.mock('@/lib/route-auth', () => ({ requireAuthForRoute: vi.fn() }))
 vi.mock('@/lib/ledewire', () => ({ createBuyerClient: vi.fn() }))
 
 import { GET } from './route'
-import { NotFoundError } from '@ledewire/node'
+import { AuthError, NotFoundError } from '@ledewire/node'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 
@@ -59,5 +59,19 @@ describe('GET /api/content/[id]/access', () => {
     const res = await call()
     expect(res.status).toBe(404)
     expect((await res.json()).error).toBe('Content not found')
+  })
+
+  it('returns 401 when the buyer token is refused', async () => {
+    mockGetWithAccess.mockRejectedValue(new AuthError('expired'))
+    const res = await call()
+    expect(res.status).toBe(401)
+  })
+
+  it('returns 500 without detail on an unexpected error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockGetWithAccess.mockRejectedValue(new Error('boom'))
+    const res = await call()
+    expect(res.status).toBe(500)
+    expect((await res.json()).error).toBe('An unexpected error occurred')
   })
 })

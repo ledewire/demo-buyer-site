@@ -128,6 +128,25 @@ describe('BuyConfirmation', () => {
     expect(onBought).not.toHaveBeenCalled()
   })
 
+  it('a refusal for a Company member shows its message without a wallet link', async () => {
+    const user = userEvent.setup()
+    mockFetchOnce(200, makePreview({ wallet_balance_cents: null, company_name: 'Acme' }))
+    renderConfirmation()
+    await screen.findByText('Charged to Acme')
+    mockFetchOnce(422, { error: 'Insufficient funds', type: 'insufficient_funds' })
+    await user.click(screen.getByRole('button', { name: 'Confirm purchase' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Insufficient funds')
+    expect(screen.queryByRole('link', { name: /wallet/i })).not.toBeInTheDocument()
+  })
+
+  it('Confirm waits for the preview, so the buy quotes its price', async () => {
+    mockFetchOnce(200, PREVIEW)
+    renderConfirmation()
+    expect(screen.getByRole('button', { name: 'Confirm purchase' })).toBeDisabled()
+    await screen.findByText('Wallet balance: $10.00')
+    expect(screen.getByRole('button', { name: 'Confirm purchase' })).toBeEnabled()
+  })
+
   it('another refusal shows its message without a wallet link', async () => {
     await confirmWith({ error: 'Content not found' }, 404)
     expect(await screen.findByRole('alert')).toHaveTextContent('Content not found')

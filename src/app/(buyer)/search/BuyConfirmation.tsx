@@ -38,7 +38,7 @@ export default function BuyConfirmation({ result, onCancel, onBought }: Props) {
   const [refusal, setRefusal] = useState<Refusal | null>(null)
 
   // Known short before confirming: say so up front and don't offer a buy that will be refused.
-  const short = (payer.kind === 'wallet' || payer.kind === 'company') && !payer.affordable
+  const cannotAfford = (payer.kind === 'wallet' || payer.kind === 'company') && !payer.affordable
 
   async function confirm() {
     setRefusal(null)
@@ -57,7 +57,9 @@ export default function BuyConfirmation({ result, onCancel, onBought }: Props) {
       setRefusal({
         message: data.error ?? 'The purchase failed',
         // The buyer fixes these on the Wallet page: the spend cap (402) or too little money.
-        walletLink: res.status === 402 || data.type === 'insufficient_funds',
+        // A Company member can't fund the Company wallet, so the Wallet page can't help them.
+        walletLink:
+          payer.kind !== 'company' && (res.status === 402 || data.type === 'insufficient_funds'),
       })
     } catch {
       setRefusal({ message: 'Network error — please try again', walletLink: false })
@@ -170,7 +172,7 @@ export default function BuyConfirmation({ result, onCancel, onBought }: Props) {
           <button
             type="button"
             onClick={confirm}
-            disabled={buying || short}
+            disabled={buying || payer.kind === 'loading' || cannotAfford}
             className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
           >
             {buying ? 'Buying…' : 'Confirm purchase'}
