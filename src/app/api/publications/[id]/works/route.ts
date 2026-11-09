@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { ledewireErrorResponse } from '@/lib/route-errors'
-import { isPageKind, type PageKind } from '@/lib/work-labels'
+import { isPageKind } from '@/lib/work-labels'
 
 interface Params {
   params: Promise<{ id: string }>
@@ -21,6 +21,9 @@ export async function GET(request: NextRequest, { params }: Params) {
   const to = search.get('to') || undefined
   const cursor = search.get('cursor') || undefined
   const pageKindParam = search.get('page_kind') || undefined
+  // undefined: no filter. null: a value the SDK doesn't allow.
+  const pageKind =
+    pageKindParam === undefined ? undefined : isPageKind(pageKindParam) ? pageKindParam : null
 
   for (const [name, value] of [
     ['from', from],
@@ -31,10 +34,9 @@ export async function GET(request: NextRequest, { params }: Params) {
     }
   }
 
-  if (pageKindParam !== undefined && !isPageKind(pageKindParam)) {
+  if (pageKind === null) {
     return NextResponse.json({ error: 'page_kind is not a known page kind' }, { status: 400 })
   }
-  const pageKind = pageKindParam as PageKind | undefined
 
   try {
     const client = await createBuyerClient()

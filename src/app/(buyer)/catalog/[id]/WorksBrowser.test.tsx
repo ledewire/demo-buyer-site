@@ -100,7 +100,11 @@ describe('WorksBrowser', () => {
       200,
       page([{ url: 'https://a.example/2', last_mod: null }], { next_cursor: 'c3' }),
     )
-    mockFetchOnce(200, page([{ url: 'https://a.example/9', last_mod: null }]))
+    mockFetchOnce(
+      200,
+      page([{ url: 'https://a.example/9', last_mod: null }], { next_cursor: 'c9' }),
+    )
+    mockFetchOnce(200, page([{ url: 'https://a.example/10', last_mod: null }]))
     renderBrowser()
     await userEvent.type(screen.getByLabelText('From'), '2026-01-01')
     await userEvent.click(screen.getByRole('button', { name: 'Find articles' }))
@@ -116,7 +120,46 @@ describe('WorksBrowser', () => {
     )
     expect(screen.queryByText('https://a.example/1')).not.toBeInTheDocument()
     expect(screen.queryByText('https://a.example/2')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Load more' }))
+    expect(await screen.findByText('https://a.example/10')).toBeInTheDocument()
+    expect(global.fetch).toHaveBeenLastCalledWith(
+      '/api/publications/pub-1/works?from=2026-01-01&page_kind=article&cursor=c9',
+    )
+  })
+
+  it('locks the page kind while a load is in flight', async () => {
+    mockFetchOnce(200, page([{ url: 'https://a.example/1', last_mod: null }]))
+    let resolve!: (r: Response) => void
+    vi.mocked(global.fetch).mockReturnValueOnce(new Promise((r) => (resolve = r)))
+    renderBrowser()
+    await userEvent.click(screen.getByRole('button', { name: 'Find articles' }))
+    await screen.findByText('https://a.example/1')
+
+    await userEvent.selectOptions(screen.getByLabelText('Page kind'), 'Article')
+    expect(screen.getByLabelText('Page kind')).toBeDisabled()
+
+    resolve({
+      ok: true,
+      status: 200,
+      json: async () => page([{ url: 'https://a.example/9', last_mod: null }]),
+    } as Response)
+    await screen.findByText('https://a.example/9')
+    expect(screen.getByLabelText('Page kind')).toBeEnabled()
+  })
+
+  it('puts the page kind back when changing it fails', async () => {
+    mockFetchOnce(200, page([{ url: 'https://a.example/1', last_mod: null }]))
+    mockFetchOnce(429, { error: 'slow down' })
+    renderBrowser()
+    await userEvent.click(screen.getByRole('button', { name: 'Find articles' }))
+    await screen.findByText('https://a.example/1')
+
+    await userEvent.selectOptions(screen.getByLabelText('Page kind'), 'Article')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/too many requests/i)
+    expect(screen.getByLabelText('Page kind')).toHaveValue('')
+    expect(screen.getByText('https://a.example/1')).toBeInTheDocument()
   })
 
   it('says an empty page with more pages behind it is not the end', async () => {

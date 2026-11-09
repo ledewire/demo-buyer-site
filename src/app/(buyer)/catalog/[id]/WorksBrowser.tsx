@@ -7,10 +7,14 @@ import { useExportSelection } from '@/lib/export-selection'
 import { formatDate } from '@/lib/format'
 import { PAGE_KIND_LABELS, topicLabel, type PageKind } from '@/lib/work-labels'
 
-interface Query {
+/** A Page kind to keep, or `''` for every kind. */
+type PageKindFilter = PageKind | ''
+
+/** The filters a page of works was loaded with; "Load more" must send the same ones. */
+interface WorksFilters {
   from: string
   to: string
-  pageKind: PageKind | ''
+  pageKind: PageKindFilter
 }
 
 interface Props {
@@ -23,27 +27,32 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
   const selection = useExportSelection()
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
-  const [pageKind, setPageKind] = useState<PageKind | ''>('')
+  const [pageKind, setPageKind] = useState<PageKindFilter>('')
   const [works, setWorks] = useState<PublicationWork[] | null>(null)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [dateFilter, setDateFilter] = useState<PublicationWorkListResponse['date_filter'] | null>(
     null,
   )
-  // The query the loaded results came from — "Load more" must reuse it even if
-  // the inputs have since been edited.
-  const [loadedQuery, setLoadedQuery] = useState<Query>({ from: '', to: '', pageKind: '' })
+  // The filters the loaded results came from — "Load more" must reuse them even
+  // if the inputs have since been edited.
+  const [loadedFilters, setLoadedFilters] = useState<WorksFilters>({
+    from: '',
+    to: '',
+    pageKind: '',
+  })
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load(query: Query, cursor?: string) {
+  /** Loads a page of works; resolves to whether it loaded. */
+  async function load(filters: WorksFilters, cursor?: string): Promise<boolean> {
     setError(null)
     setLoading(true)
     try {
       const qs = new URLSearchParams()
-      if (query.from) qs.set('from', query.from)
-      if (query.to) qs.set('to', query.to)
-      if (query.pageKind) qs.set('page_kind', query.pageKind)
+      if (filters.from) qs.set('from', filters.from)
+      if (filters.to) qs.set('to', filters.to)
+      if (filters.pageKind) qs.set('page_kind', filters.pageKind)
       if (cursor) qs.set('cursor', cursor)
       const res = await fetch(
         `/api/publications/${encodeURIComponent(publicationId)}/works?${qs.toString()}`,
@@ -55,15 +64,17 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
             ? 'Too many requests — wait a moment and try again.'
             : (data.error ?? 'Failed to load articles'),
         )
-        return
+        return false
       }
       const page = data as PublicationWorkListResponse
       setWorks((prev) => (cursor && prev ? [...prev, ...page.works] : page.works))
       setNextCursor(page.next_cursor)
       setDateFilter(page.date_filter)
-      setLoadedQuery(query)
+      setLoadedFilters(filters)
+      return true
     } catch {
       setError('Network error — please try again')
+      return false
     } finally {
       setLoading(false)
     }
@@ -75,10 +86,13 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
   }
 
   // Once results are showing, a new kind reloads them from the first page (no
-  // cursor) over the range they came from.
-  function handlePageKindChange(kind: PageKind | '') {
+  // cursor) over the range they came from. If that fails the rows are still the
+  // old kind's, so the select goes back to match them.
+  async function handlePageKindChange(kind: PageKindFilter) {
     setPageKind(kind)
-    if (works) load({ ...loadedQuery, pageKind: kind })
+    if (works && !(await load({ ...loadedFilters, pageKind: kind }))) {
+      setPageKind(loadedFilters.pageKind)
+    }
   }
 
   const shown = useMemo(() => {
@@ -130,7 +144,9 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
           <select
             id="works-page-kind"
             value={pageKind}
-            onChange={(e) => handlePageKindChange(e.target.value as PageKind | '')}
+            // Locked while loading, so a kind change can't race another response.
+            disabled={loading}
+            onChange={(e) => handlePageKindChange(e.target.value as PageKindFilter)}
             className="mt-1 rounded-md border-gray-300 text-sm shadow-xs"
           >
             <option value="">All kinds</option>
@@ -281,7 +297,7 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
           {nextCursor && (
             <button
               type="button"
-              onClick={() => load(loadedQuery, nextCursor)}
+              onClick={() => load(loadedFilters, nextCursor)}
               disabled={loading}
               className="px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
             >
