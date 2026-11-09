@@ -12,9 +12,12 @@ export default async function PurchasesPage() {
 
   try {
     const client = await createBuyerClient()
-    const [purchases, membership] = await Promise.all([
+    const [purchases, membership, paymentKeys] = await Promise.all([
       client.purchases.list().then(listItems),
       getCompanyMembership(),
+      // Only names the key that paid: on any failure (a Machine user is refused its own keys)
+      // the list still renders, saying just that a Payment key paid.
+      client.user.paymentKeys.list().catch(() => null),
     ])
     return (
       <div className="space-y-6">
@@ -36,7 +39,7 @@ export default async function PurchasesPage() {
             .
           </p>
         </div>
-        <PurchasesList purchases={purchases} />
+        <PurchasesList purchases={purchases} paymentKeys={paymentKeys} />
       </div>
     )
   } catch (err) {

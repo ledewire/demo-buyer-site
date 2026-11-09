@@ -1,8 +1,25 @@
-import type { PurchaseResponse } from '@ledewire/node'
+import type { PaymentKey, PurchaseResponse } from '@ledewire/node'
 import { formatCents } from '@/lib/format'
 
 interface Props {
   purchases: PurchaseResponse[]
+  /** The Buyer's active Payment keys, or null when they could not be loaded. */
+  paymentKeys: PaymentKey[] | null
+}
+
+/**
+ * Names the Payment key that paid for a purchase. The key list holds active keys only, so an
+ * id missing from it is a revoked key's.
+ */
+function PaidWith({ keyId, paymentKeys }: { keyId: string; paymentKeys: PaymentKey[] | null }) {
+  if (paymentKeys === null) return <>via a Payment key</>
+  const key = paymentKeys.find((k) => k.id === keyId)
+  if (!key) return <>Paid with a revoked Payment key</>
+  return (
+    <>
+      <span>via Payment key</span> <span className="font-medium text-gray-700">{key.name}</span>
+    </>
+  )
 }
 
 const STATUS_CLASSES: Record<string, string> = {
@@ -13,7 +30,7 @@ const STATUS_CLASSES: Record<string, string> = {
   reverted: 'text-gray-600 bg-gray-100',
 }
 
-export default function PurchasesList({ purchases }: Props) {
+export default function PurchasesList({ purchases, paymentKeys }: Props) {
   if (purchases.length === 0) {
     return (
       <div className="text-center py-12">
@@ -51,7 +68,14 @@ export default function PurchasesList({ purchases }: Props) {
         <tbody className="divide-y divide-gray-100">
           {purchases.map((p) => (
             <tr key={p.id}>
-              <td className="px-4 py-3 text-sm text-gray-800">{p.content.title}</td>
+              <td className="px-4 py-3 text-sm text-gray-800">
+                {p.content.title}
+                {p.payment_key_id && (
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    <PaidWith keyId={p.payment_key_id} paymentKeys={paymentKeys} />
+                  </p>
+                )}
+              </td>
               <td className="px-4 py-3 text-sm text-gray-600">{p.seller.name}</td>
               <td className="px-4 py-3 text-sm font-medium text-gray-800">
                 {formatCents(p.amount_cents)}
