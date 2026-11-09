@@ -19,6 +19,22 @@ function mockFetch(status: number, body: object) {
   } as Response)
 }
 
+const session = { client_secret: 'pi_secret', session_id: 'sess_1', public_key: 'pk_test' }
+
+/** Walks the form up to the mounted Payment Element; `statusBodies` answer later fetches. */
+async function openPaymentForm(target: 'personal' | 'company', ...statusBodies: object[]) {
+  const fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => session } as Response)
+  for (const body of statusBodies) {
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => body } as Response)
+  }
+  global.fetch = fetch
+  render(<WalletFund target={target} />)
+  await userEvent.click(screen.getByRole('button', { name: /fund wallet|add funds/i }))
+  await userEvent.type(screen.getByLabelText(/amount to fund/i), '10')
+  await userEvent.click(screen.getByRole('button', { name: /continue/i }))
+  await screen.findByTestId('payment-element')
+}
+
 describe('WalletFund', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -49,7 +65,7 @@ describe('WalletFund', () => {
   })
 
   it('advances to Stripe form on successful session creation', async () => {
-    mockFetch(200, { client_secret: 'pi_secret', session_id: 'sess_1', public_key: 'pk_test' })
+    mockFetch(200, session)
     render(<WalletFund />)
     await userEvent.click(screen.getByRole('button', { name: /fund wallet/i }))
     await userEvent.type(screen.getByLabelText(/amount to fund/i), '10')
@@ -58,12 +74,7 @@ describe('WalletFund', () => {
   })
 
   it('mounts the Payment Element in tabs, which Stripe.js no longer defaults to', async () => {
-    mockFetch(200, { client_secret: 'pi_secret', session_id: 'sess_1', public_key: 'pk_test' })
-    render(<WalletFund />)
-    await userEvent.click(screen.getByRole('button', { name: /fund wallet/i }))
-    await userEvent.type(screen.getByLabelText(/amount to fund/i), '10')
-    await userEvent.click(screen.getByRole('button', { name: /continue/i }))
-    await screen.findByTestId('payment-element')
+    await openPaymentForm('personal')
     expect(vi.mocked(PaymentElement).mock.lastCall?.[0]).toEqual({ options: { layout: 'tabs' } })
   })
 
@@ -82,7 +93,7 @@ describe('WalletFund', () => {
   })
 
   it('creates a Company payment session for the Company target', async () => {
-    mockFetch(200, { client_secret: 'pi_secret', session_id: 'sess_1', public_key: 'pk_test' })
+    mockFetch(200, session)
     render(<WalletFund target="company" />)
     await userEvent.click(screen.getByRole('button', { name: /add funds/i }))
     await userEvent.type(screen.getByLabelText(/amount to fund/i), '25')
@@ -120,26 +131,6 @@ describe('WalletFund', () => {
         reload,
       })
     })
-
-    async function openPaymentForm(target: 'personal' | 'company', ...statusBodies: object[]) {
-      const fetch = vi.fn().mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          client_secret: 'pi_secret',
-          session_id: 'sess_1',
-          public_key: 'pk_test',
-        }),
-      } as Response)
-      for (const body of statusBodies) {
-        fetch.mockResolvedValueOnce({ ok: true, json: async () => body } as Response)
-      }
-      global.fetch = fetch
-      render(<WalletFund target={target} />)
-      await userEvent.click(screen.getByRole('button', { name: /fund wallet|add funds/i }))
-      await userEvent.type(screen.getByLabelText(/amount to fund/i), '10')
-      await userEvent.click(screen.getByRole('button', { name: /continue/i }))
-      await screen.findByTestId('payment-element')
-    }
 
     it('confirms with the mounted Elements and settles a Company top-up', async () => {
       confirmPayment.mockResolvedValue({ paymentIntent: { status: 'succeeded' } })
