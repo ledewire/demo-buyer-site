@@ -66,7 +66,9 @@ describe('SpendCapControl', () => {
     await userEvent.clear(input)
     if (typed) await userEvent.type(input, typed)
     await userEvent.click(screen.getByRole('button', { name: /^save$/i }))
-    expect(screen.getByRole('alert')).toHaveTextContent('Enter a daily spend cap of $0 or more')
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Enter a daily spend cap from $0 to $21,474,836.47',
+    )
     expect(global.fetch).not.toHaveBeenCalled()
   })
 

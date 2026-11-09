@@ -64,7 +64,7 @@ describe('MemberCapEditor', () => {
     global.fetch = vi.fn()
     render(<MemberCapEditor member={bob} todayCents={0} />)
     await saveCap('-5')
-    expect(screen.getByRole('alert')).toHaveTextContent(/\$0 or more/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/from \$0 to \$21,474,836\.47/)
     expect(global.fetch).not.toHaveBeenCalled()
   })
 

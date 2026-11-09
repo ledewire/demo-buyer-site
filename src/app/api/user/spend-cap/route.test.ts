@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest, NextResponse } from 'next/server'
-import { ForbiddenError } from '@ledewire/node'
+import { AuthError, ForbiddenError } from '@ledewire/node'
 
 vi.mock('@/lib/route-auth', () => ({ requireAuthForRoute: vi.fn() }))
 vi.mock('@/lib/ledewire', () => import('@/__mocks__/ledewire-client'))
@@ -24,14 +24,10 @@ describe('/api/user/spend-cap', () => {
   })
 
   describe('PATCH', () => {
-    it('refuses a null cap without calling the SDK', async () => {
-      const res = await PATCH(patchRequest({ daily_spend_limit_cents: null }))
-      expect(res.status).toBe(400)
-      expect(mockUserSpendCap.update).not.toHaveBeenCalled()
-    })
-
     it.each([
+      ['null', { daily_spend_limit_cents: null }],
       ['missing', {}],
+      ['too-large', { daily_spend_limit_cents: 2147483648 }],
       ['negative', { daily_spend_limit_cents: -1 }],
       ['fractional', { daily_spend_limit_cents: 12.5 }],
       ['string', { daily_spend_limit_cents: '500' }],
@@ -77,6 +73,19 @@ describe('/api/user/spend-cap', () => {
       const res = await PATCH(patchRequest({ daily_spend_limit_cents: 500 }))
       expect(res.status).toBe(403)
       expect(await res.json()).toMatchObject({ error: 'A Company admin sets your daily spend cap' })
+    })
+
+    it('returns 401 when the SDK rejects the session', async () => {
+      mockUserSpendCap.update.mockRejectedValue(new AuthError('expired'))
+      const res = await PATCH(patchRequest({ daily_spend_limit_cents: 500 }))
+      expect(res.status).toBe(401)
+    })
+
+    it('returns 500 on an unexpected error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockUserSpendCap.update.mockRejectedValue(new Error('boom'))
+      const res = await PATCH(patchRequest({ daily_spend_limit_cents: 500 }))
+      expect(res.status).toBe(500)
     })
   })
 })

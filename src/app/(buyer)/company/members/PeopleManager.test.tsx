@@ -184,7 +184,7 @@ describe('PeopleManager', () => {
     await userEvent.clear(input)
     await userEvent.type(input, '-5')
     await userEvent.click(screen.getByRole('button', { name: 'Save' }))
-    expect(screen.getByRole('alert')).toHaveTextContent(/\$0 or more/)
+    expect(screen.getByRole('alert')).toHaveTextContent(/from \$0 to \$21,474,836\.47/)
     expect(global.fetch).not.toHaveBeenCalled()
   })
 
