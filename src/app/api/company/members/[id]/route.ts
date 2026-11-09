@@ -3,6 +3,7 @@ import type { CompanyMemberUpdateRequest } from '@ledewire/node'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { ledewireErrorResponse } from '@/lib/route-errors'
+import { INVALID_CAP_CENTS_MESSAGE, isCapCents } from '@/lib/spend-cap'
 
 const ROLES = ['admin', 'member'] as const
 type Role = (typeof ROLES)[number]
@@ -37,14 +38,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if (role !== undefined && !ROLES.includes(role as Role)) {
     return NextResponse.json({ error: 'role must be admin or member' }, { status: 400 })
   }
-  if (
-    daily_spend_limit_cents !== undefined &&
-    !(Number.isInteger(daily_spend_limit_cents) && (daily_spend_limit_cents as number) >= 0)
-  ) {
-    return NextResponse.json(
-      { error: 'daily_spend_limit_cents must be a non-negative integer' },
-      { status: 400 },
-    )
+  if (daily_spend_limit_cents !== undefined && !isCapCents(daily_spend_limit_cents)) {
+    return NextResponse.json({ error: INVALID_CAP_CENTS_MESSAGE }, { status: 400 })
   }
 
   // The SDK takes role, the cap, or both, never neither, which the check above rules out.

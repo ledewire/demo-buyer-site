@@ -3,13 +3,17 @@ import { requireAuth } from '@/lib/auth'
 import { createBuyerClient } from '@/lib/ledewire'
 import { AuthError, LedewireError } from '@ledewire/node'
 import ApiKeysManager from './ApiKeysManager'
+import SpendCapControl from './SpendCapControl'
 
 export default async function ApiKeysPage() {
   await requireAuth()
 
   try {
     const client = await createBuyerClient()
-    const keys = await client.user.apiKeys.list()
+    const [keys, spendCap] = await Promise.all([
+      client.user.apiKeys.list(),
+      client.user.spendCap.get(),
+    ])
     return (
       <div className="space-y-6">
         <div>
@@ -19,6 +23,7 @@ export default async function ApiKeysPage() {
             password. Each key is independently revocable.
           </p>
         </div>
+        <SpendCapControl initialSpendCap={spendCap} />
         <ApiKeysManager initialKeys={keys} />
       </div>
     )
