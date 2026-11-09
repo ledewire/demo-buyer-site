@@ -10,7 +10,7 @@ vi.mock('@ledewire/node', async (importOriginal) => {
 })
 
 import { POST } from './route'
-import { LedewireError, NotFoundError } from '@ledewire/node'
+import { AuthError, LedewireError, NotFoundError } from '@ledewire/node'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 
@@ -77,5 +77,16 @@ describe('POST /api/company/machine-users/:id/payment-keys', () => {
   it('returns 404 when the Machine user is not in the Company', async () => {
     mockCreate.mockRejectedValue(new NotFoundError('not found'))
     expect((await post(VALID, 'mu-gone')).status).toBe(404)
+  })
+
+  it('returns 401 when the API rejects the session', async () => {
+    mockCreate.mockRejectedValue(new AuthError('expired'))
+    expect((await post(VALID)).status).toBe(401)
+  })
+
+  it('returns 500 on an unexpected error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockCreate.mockRejectedValue(new Error('boom'))
+    expect((await post(VALID)).status).toBe(500)
   })
 })

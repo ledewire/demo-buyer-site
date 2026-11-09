@@ -75,6 +75,17 @@ describe('PurchasesPage', () => {
     },
   )
 
+  it('redirects to login when the key list is unauthenticated', async () => {
+    mockUserPaymentKeys.list.mockRejectedValue(new AuthError('expired'))
+    await expect(PurchasesPage()).rejects.toThrow('NEXT_REDIRECT')
+    expect(redirect).toHaveBeenCalledWith('/login')
+  })
+
+  it('rethrows an unexpected error from the key list', async () => {
+    mockUserPaymentKeys.list.mockRejectedValue(new TypeError('boom'))
+    await expect(PurchasesPage()).rejects.toThrow('boom')
+  })
+
   it('redirects to login when the purchases read is unauthenticated', async () => {
     mockPurchases.list.mockRejectedValue(new AuthError('expired'))
     await expect(PurchasesPage()).rejects.toThrow('NEXT_REDIRECT')

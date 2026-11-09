@@ -1,7 +1,7 @@
 'use client'
 
 import { useId, useState } from 'react'
-import type { PaymentKey } from '@ledewire/node'
+import type { PaymentKey, PaymentKeyCreateRequest } from '@ledewire/node'
 import { formatDate } from '@/lib/format'
 import { PAYMENT_KEY_LIMIT } from '@/lib/payment-keys'
 import PaymentKeyGuidance from './PaymentKeyGuidance'
@@ -18,6 +18,7 @@ interface Props {
 const INPUT_CLASSES =
   'mt-1 block w-full rounded-md border-gray-300 shadow-xs font-mono focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-50 disabled:text-gray-400'
 const TH_CLASSES = 'px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider'
+const EMPTY_REGISTRATION: PaymentKeyCreateRequest = { name: '', public_key: '', proof: '' }
 
 /**
  * Lists, registers and revokes Payment keys: public Ed25519 keys that sign x402 payments. The
@@ -25,7 +26,7 @@ const TH_CLASSES = 'px-4 py-3 text-left text-xs font-medium text-gray-500 upperc
  */
 export default function PaymentKeyManager({ variant, apiPath, initialKeys }: Props) {
   const [keys, setKeys] = useState(initialKeys)
-  const [fields, setFields] = useState({ name: '', public_key: '', proof: '' })
+  const [fields, setFields] = useState<PaymentKeyCreateRequest>(EMPTY_REGISTRATION)
   const [registering, setRegistering] = useState(false)
   const [registerError, setRegisterError] = useState<string | null>(null)
   const [revoking, setRevoking] = useState<string | null>(null)
@@ -58,7 +59,7 @@ export default function PaymentKeyManager({ variant, apiPath, initialKeys }: Pro
       }
       // A Buyer's keys are listed newest first, a Machine user's oldest first.
       setKeys((prev) => (variant === 'buyer' ? [data, ...prev] : [...prev, data]))
-      setFields({ name: '', public_key: '', proof: '' })
+      setFields(EMPTY_REGISTRATION)
     } catch {
       setRegisterError('Network error — please try again')
     } finally {

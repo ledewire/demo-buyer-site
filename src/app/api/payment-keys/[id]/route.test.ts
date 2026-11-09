@@ -10,7 +10,7 @@ vi.mock('@ledewire/node', async (importOriginal) => {
 })
 
 import { DELETE } from './route'
-import { NotFoundError } from '@ledewire/node'
+import { AuthError, NotFoundError } from '@ledewire/node'
 import { requireAuthForRoute } from '@/lib/route-auth'
 import { createBuyerClient } from '@/lib/ledewire'
 
@@ -50,5 +50,16 @@ describe('DELETE /api/payment-keys/:id', () => {
     mockRevoke.mockRejectedValue(new NotFoundError('not found'))
     const res = await revoke('pk-gone')
     expect(res.status).toBe(404)
+  })
+
+  it('returns 401 when the API rejects the session', async () => {
+    mockRevoke.mockRejectedValue(new AuthError('expired'))
+    expect((await revoke()).status).toBe(401)
+  })
+
+  it('returns 500 on an unexpected error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockRevoke.mockRejectedValue(new Error('boom'))
+    expect((await revoke()).status).toBe(500)
   })
 })

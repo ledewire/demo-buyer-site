@@ -63,6 +63,17 @@ describe('GET /api/payment-keys', () => {
     const res = await GET()
     expect(res.status).toBe(403)
   })
+
+  it('returns 401 when the API rejects the session', async () => {
+    mockList.mockRejectedValue(new AuthError('expired'))
+    expect((await GET()).status).toBe(401)
+  })
+
+  it('returns 500 on an unexpected error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockList.mockRejectedValue(new Error('boom'))
+    expect((await GET()).status).toBe(500)
+  })
 })
 
 describe('POST /api/payment-keys', () => {
@@ -121,5 +132,11 @@ describe('POST /api/payment-keys', () => {
     mockCreate.mockRejectedValue(new AuthError('expired'))
     const res = await post(VALID)
     expect(res.status).toBe(401)
+  })
+
+  it('returns 500 on an unexpected error', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockCreate.mockRejectedValue(new Error('boom'))
+    expect((await post(VALID)).status).toBe(500)
   })
 })
