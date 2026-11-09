@@ -64,7 +64,8 @@ function StripePaymentForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement />
+      {/* Stripe.js Basil made accordion the default; keep the tabs this form has always shown. */}
+      <PaymentElement options={{ layout: 'tabs' }} />
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button
         type="submit"
