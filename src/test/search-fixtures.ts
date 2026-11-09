@@ -1,5 +1,9 @@
 import { vi } from 'vitest'
-import type { ContentSearchResultWithPublication } from '@ledewire/node'
+import type {
+  ContentAccessInfo,
+  ContentSearchResultWithPublication,
+  ContentWithAccessResponse,
+} from '@ledewire/node'
 
 /** A search result, "Ocean heat" for $1.25 from a LedeWire-native store unless overridden. */
 export function makeResult(
@@ -37,5 +41,25 @@ export function mockFetchOnce(status: number, body: object, headers: Record<stri
   } as Response)
 }
 
-/** A `GET /api/wallet/balance` body for a buyer paying from their own $10.00 wallet. */
-export const WALLET = { balance_cents: 1000, remaining_cents: null, company_name: null }
+/** A `GET /api/content/[id]/access` body for "Ocean heat" at $1.25, with `access_info` overridden. */
+export function makePreview(
+  access: Partial<ContentAccessInfo> = {},
+): Pick<ContentWithAccessResponse, 'id' | 'price_cents' | 'access_info'> {
+  return {
+    id: 'c-1',
+    price_cents: 125,
+    access_info: {
+      user_id: 'u-1',
+      has_purchased: false,
+      has_sufficient_funds: true,
+      wallet_balance_cents: 1000,
+      next_required_action: 'purchase',
+      remaining_cents: null,
+      company_name: null,
+      ...access,
+    },
+  }
+}
+
+/** The preview for a buyer paying from their own $10.00 wallet, who can afford the work. */
+export const PREVIEW = makePreview()
