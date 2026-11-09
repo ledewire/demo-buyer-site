@@ -4,15 +4,17 @@ import { createBuyerClient } from '@/lib/ledewire'
 import { AuthError, LedewireError } from '@ledewire/node'
 import ApiKeysManager from './ApiKeysManager'
 import SpendCapControl from './SpendCapControl'
+import PaymentKeyManager from '@/components/PaymentKeyManager'
 
 export default async function ApiKeysPage() {
   await requireAuth()
 
   try {
     const client = await createBuyerClient()
-    const [keys, spendCap] = await Promise.all([
+    const [keys, spendCap, paymentKeys] = await Promise.all([
       client.user.apiKeys.list(),
       client.user.spendCap.get(),
+      client.user.paymentKeys.list(),
     ])
     return (
       <div className="space-y-6">
@@ -25,6 +27,7 @@ export default async function ApiKeysPage() {
         </div>
         <SpendCapControl initialSpendCap={spendCap} />
         <ApiKeysManager initialKeys={keys} />
+        <PaymentKeyManager variant="buyer" apiPath="/api/payment-keys" initialKeys={paymentKeys} />
       </div>
     )
   } catch (err) {

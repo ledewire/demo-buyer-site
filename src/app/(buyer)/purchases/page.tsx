@@ -12,9 +12,15 @@ export default async function PurchasesPage() {
 
   try {
     const client = await createBuyerClient()
-    const [purchases, membership] = await Promise.all([
+    const [purchases, membership, paymentKeys] = await Promise.all([
       client.purchases.list().then(listItems),
       getCompanyMembership(),
+      // The key list only names the key that paid, so when the API refuses it the purchases
+      // still render, saying just that a Payment key paid.
+      client.user.paymentKeys.list().catch((err: unknown) => {
+        if (err instanceof LedewireError && !(err instanceof AuthError)) return null
+        throw err
+      }),
     ])
     return (
       <div className="space-y-6">
@@ -36,7 +42,7 @@ export default async function PurchasesPage() {
             .
           </p>
         </div>
-        <PurchasesList purchases={purchases} />
+        <PurchasesList purchases={purchases} paymentKeys={paymentKeys} />
       </div>
     )
   } catch (err) {
