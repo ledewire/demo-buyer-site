@@ -50,6 +50,45 @@ describe('PurchasesList', () => {
     expect(screen.getByText('completed')).toBeInTheDocument()
   })
 
+  it('links to the licence download when the purchase has a licence document', () => {
+    render(
+      <PurchasesList
+        purchases={[
+          makePurchase({
+            id: 'p-7',
+            license: {
+              type: 'ON_DEMAND_LICENSE',
+              permissions: ['PARTIAL_USE'],
+              document_url: 'https://api.ledewire.com/v1/purchases/p-7/license_document',
+            },
+          }),
+        ]}
+      />,
+    )
+    expect(screen.getByRole('link', { name: 'Licence' })).toHaveAttribute(
+      'href',
+      '/api/purchases/p-7/licence',
+    )
+  })
+
+  it('shows no licence link when the purchase has no licence', () => {
+    render(<PurchasesList purchases={[makePurchase({ license: null })]} />)
+    expect(screen.queryByRole('link', { name: 'Licence' })).not.toBeInTheDocument()
+  })
+
+  it('shows no licence link while the licence document is not yet captured', () => {
+    render(
+      <PurchasesList
+        purchases={[
+          makePurchase({
+            license: { type: 'ON_DEMAND_LICENSE', permissions: [], document_url: null },
+          }),
+        ]}
+      />,
+    )
+    expect(screen.queryByRole('link', { name: 'Licence' })).not.toBeInTheDocument()
+  })
+
   it('renders multiple purchases', () => {
     render(
       <PurchasesList

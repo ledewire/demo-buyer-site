@@ -43,6 +43,9 @@ export default function PurchasesList({ purchases }: Props) {
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Status
             </th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Licence
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -64,6 +67,16 @@ export default function PurchasesList({ purchases }: Props) {
                 >
                   {p.status}
                 </span>
+              </td>
+              <td className="px-4 py-3 text-sm">
+                {p.license?.document_url && (
+                  <a
+                    href={`/api/purchases/${encodeURIComponent(p.id)}/licence`}
+                    className="text-indigo-600 hover:text-indigo-800"
+                  >
+                    Licence
+                  </a>
+                )}
               </td>
             </tr>
           ))}
