@@ -48,6 +48,23 @@ describe('GET /api/publications/[id]/works', () => {
     })
   })
 
+  it('passes page_kind through to the SDK', async () => {
+    mockListWorks.mockResolvedValue({ works: [] })
+    const res = await call('?page_kind=section_index')
+    expect(res.status).toBe(200)
+    expect(mockListWorks).toHaveBeenCalledWith(
+      'pub-1',
+      expect.objectContaining({ page_kind: 'section_index' }),
+    )
+  })
+
+  it('rejects a page_kind the SDK does not allow', async () => {
+    const res = await call('?page_kind=blog')
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({ error: expect.stringMatching(/page_kind/) })
+    expect(mockListWorks).not.toHaveBeenCalled()
+  })
+
   it('omits empty params', async () => {
     mockListWorks.mockResolvedValue({ works: [] })
     await call('?from=&to=')

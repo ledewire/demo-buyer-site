@@ -5,6 +5,17 @@ import Link from 'next/link'
 import type { PublicationWork, PublicationWorkListResponse } from '@ledewire/node'
 import { useExportSelection } from '@/lib/export-selection'
 import { formatDate } from '@/lib/format'
+import { PAGE_KIND_LABELS, topicLabel, type PageKind } from '@/lib/work-labels'
+
+/** A Page kind to keep, or `''` for every kind. */
+type PageKindFilter = PageKind | ''
+
+/** The filters a page of works was loaded with; "Load more" must send the same ones. */
+interface WorksFilters {
+  from: string
+  to: string
+  pageKind: PageKindFilter
+}
 
 interface Props {
   publicationId: string
@@ -16,25 +27,32 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
   const selection = useExportSelection()
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
+  const [pageKind, setPageKind] = useState<PageKindFilter>('')
   const [works, setWorks] = useState<PublicationWork[] | null>(null)
   const [nextCursor, setNextCursor] = useState<string | null>(null)
   const [dateFilter, setDateFilter] = useState<PublicationWorkListResponse['date_filter'] | null>(
     null,
   )
-  // The range the loaded results came from — "Load more" must reuse it even if
-  // the inputs have since been edited.
-  const [loadedRange, setLoadedRange] = useState({ from: '', to: '' })
+  // The filters the loaded results came from — "Load more" must reuse them even
+  // if the inputs have since been edited.
+  const [loadedFilters, setLoadedFilters] = useState<WorksFilters>({
+    from: '',
+    to: '',
+    pageKind: '',
+  })
   const [filter, setFilter] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function load(range: { from: string; to: string }, cursor?: string) {
+  /** Loads a page of works; resolves to whether it loaded. */
+  async function load(filters: WorksFilters, cursor?: string): Promise<boolean> {
     setError(null)
     setLoading(true)
     try {
       const qs = new URLSearchParams()
-      if (range.from) qs.set('from', range.from)
-      if (range.to) qs.set('to', range.to)
+      if (filters.from) qs.set('from', filters.from)
+      if (filters.to) qs.set('to', filters.to)
+      if (filters.pageKind) qs.set('page_kind', filters.pageKind)
       if (cursor) qs.set('cursor', cursor)
       const res = await fetch(
         `/api/publications/${encodeURIComponent(publicationId)}/works?${qs.toString()}`,
@@ -46,15 +64,17 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
             ? 'Too many requests — wait a moment and try again.'
             : (data.error ?? 'Failed to load articles'),
         )
-        return
+        return false
       }
       const page = data as PublicationWorkListResponse
       setWorks((prev) => (cursor && prev ? [...prev, ...page.works] : page.works))
       setNextCursor(page.next_cursor)
       setDateFilter(page.date_filter)
-      setLoadedRange(range)
+      setLoadedFilters(filters)
+      return true
     } catch {
       setError('Network error — please try again')
+      return false
     } finally {
       setLoading(false)
     }
@@ -62,7 +82,17 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
-    load({ from, to })
+    load({ from, to, pageKind })
+  }
+
+  // Once results are showing, a new kind reloads them from the first page (no
+  // cursor) over the range they came from. If that fails the rows are still the
+  // old kind's, so the select goes back to match them.
+  async function handlePageKindChange(kind: PageKindFilter) {
+    setPageKind(kind)
+    if (works && !(await load({ ...loadedFilters, pageKind: kind }))) {
+      setPageKind(loadedFilters.pageKind)
+    }
   }
 
   const shown = useMemo(() => {
@@ -106,6 +136,26 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
             onChange={(e) => setTo(e.target.value)}
             className="mt-1 rounded-md border-gray-300 text-sm shadow-xs"
           />
+        </div>
+        <div>
+          <label htmlFor="works-page-kind" className="block text-xs font-medium text-gray-600">
+            Page kind
+          </label>
+          <select
+            id="works-page-kind"
+            value={pageKind}
+            // Locked while loading, so a kind change can't race another response.
+            disabled={loading}
+            onChange={(e) => handlePageKindChange(e.target.value as PageKindFilter)}
+            className="mt-1 rounded-md border-gray-300 text-sm shadow-xs"
+          >
+            <option value="">All kinds</option>
+            {Object.entries(PAGE_KIND_LABELS).map(([kind, label]) => (
+              <option key={kind} value={kind}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
         <button
           type="submit"
@@ -163,7 +213,12 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
           </div>
 
           {shown.length === 0 ? (
-            <p className="text-sm text-gray-500 py-8 text-center">No articles found.</p>
+            <p className="text-sm text-gray-500 py-8 text-center">
+              {/* A page_kind filter runs per catalog page, so an empty page isn't the end. */}
+              {nextCursor
+                ? 'No matching articles on this page — load more to keep looking.'
+                : 'No articles found.'}
+            </p>
           ) : (
             <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -174,6 +229,12 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Article
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Kind
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Topics
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Last modified
@@ -207,6 +268,21 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
                             {w.url}
                           </a>
                         </td>
+                        <td className="px-4 py-2 text-sm text-gray-600 whitespace-nowrap">
+                          {PAGE_KIND_LABELS[w.page_kind]}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          <ul className="flex flex-wrap gap-1">
+                            {w.topics.map((t) => (
+                              <li
+                                key={t}
+                                className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700 whitespace-nowrap"
+                              >
+                                {topicLabel(t)}
+                              </li>
+                            ))}
+                          </ul>
+                        </td>
                         <td className="px-4 py-2 text-sm text-gray-500 whitespace-nowrap">
                           {formatDate(w.last_mod)}
                         </td>
@@ -221,7 +297,7 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
           {nextCursor && (
             <button
               type="button"
-              onClick={() => load(loadedRange, nextCursor)}
+              onClick={() => load(loadedFilters, nextCursor)}
               disabled={loading}
               className="px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
             >
