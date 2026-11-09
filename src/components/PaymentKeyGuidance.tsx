@@ -51,7 +51,9 @@ export default function PaymentKeyGuidance({ variant }: Props) {
       {variant === 'buyer' && (
         <p>
           To register your own key in one step from your agent, without this form, use{' '}
-          <code className="font-mono text-gray-800">registerPaymentKey(&#123; key, secret, name &#125;)</code>{' '}
+          <code className="font-mono text-gray-800">
+            registerPaymentKey(&#123; key, secret, name &#125;)
+          </code>{' '}
           with one of your Buyer API keys.
         </p>
       )}

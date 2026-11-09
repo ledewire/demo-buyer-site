@@ -14,26 +14,33 @@ import Pagination from '@/components/Pagination'
 import { parseFilters, type SearchParams } from '../../purchases/filters'
 import MachineKeyManager from './MachineKeyManager'
 import MemberCapEditor from './MemberCapEditor'
+import PaymentKeyManager from '@/components/PaymentKeyManager'
 
 const PER_PAGE = 25
 
 type BuyerClient = Awaited<ReturnType<typeof createBuyerClient>>
 
 /**
- * A machine member's Buyer and MCP keys, with the Machine user id their routes take, or null
- * for a human member or one no Machine user matches. The membership names the Machine user's
- * Buyer by `user_id`.
+ * A machine member's Buyer, MCP and Payment keys, with the Machine user id their routes take, or
+ * null for a human member or one no Machine user matches. The membership names the Machine
+ * user's Buyer by `user_id`.
  */
 async function findMachineKeys(client: BuyerClient, member: CompanyMember) {
   if (member.kind !== 'machine') return null
   const machineUsers = await client.company.machineUsers.list()
   const machineUser = machineUsers.data.find((m) => m.user_id === member.user_id)
   if (!machineUser) return null
-  const [buyerKeys, mcpKeys] = await Promise.all([
+  const [buyerKeys, mcpKeys, paymentKeys] = await Promise.all([
     client.company.machineUsers.buyerKeys.list(machineUser.id),
     client.company.machineUsers.mcpKeys.list(machineUser.id),
+    client.company.machineUsers.paymentKeys.list(machineUser.id),
   ])
-  return { machineUserId: machineUser.id, buyerKeys: buyerKeys.data, mcpKeys: mcpKeys.data }
+  return {
+    machineUserId: machineUser.id,
+    buyerKeys: buyerKeys.data,
+    mcpKeys: mcpKeys.data,
+    paymentKeys: paymentKeys.data,
+  }
 }
 
 function SpendTile({ label, cents }: { label: string; cents: number }) {
@@ -151,6 +158,11 @@ export default async function MemberDetailPage({
               kind="mcp"
               apiPath={`${machineUserPath}/mcp-keys`}
               initialKeys={machineKeys.mcpKeys}
+            />
+            <PaymentKeyManager
+              variant="machine"
+              apiPath={`${machineUserPath}/payment-keys`}
+              initialKeys={machineKeys.paymentKeys}
             />
           </>
         )}

@@ -118,6 +118,30 @@ describe('MemberDetailPage', () => {
         },
       ],
     } as never)
+    mockCompany.machineUsers.paymentKeys.list.mockResolvedValue({
+      data: [
+        {
+          id: 'pk-1',
+          name: 'signer',
+          public_key: 'A'.repeat(43),
+          created_by_user_id: 'user-1',
+          created_at: '2026-03-01T12:00:00Z',
+          last_used_at: null,
+        },
+      ],
+    } as never)
+  })
+
+  it("shows a machine member's Payment keys, read by its Machine user id", async () => {
+    await renderPage()
+    expect(mockCompany.machineUsers.paymentKeys.list).toHaveBeenCalledWith('mu-2')
+    expect(screen.getByRole('heading', { name: 'Payment keys' })).toBeInTheDocument()
+    const table = screen.getByRole('table', { name: 'Payment keys' })
+    expect(within(table).getByText('signer')).toBeInTheDocument()
+    expect(screen.getByText('1 of 10')).toBeInTheDocument()
+    // The admin's form: no registerPaymentKey(), which only registers the caller's own key.
+    expect(screen.getAllByText(/createPaymentKeyRegistration/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/registerPaymentKey/)).not.toBeInTheDocument()
   })
 
   it('points a buyer in no Company to joining one', async () => {
@@ -269,9 +293,11 @@ describe('MemberDetailPage', () => {
     expect(screen.getByRole('heading', { name: 'Ada' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Buyer keys' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'MCP keys' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Payment keys' })).not.toBeInTheDocument()
     expect(mockCompany.machineUsers.list).not.toHaveBeenCalled()
     expect(mockCompany.machineUsers.buyerKeys.list).not.toHaveBeenCalled()
     expect(mockCompany.machineUsers.mcpKeys.list).not.toHaveBeenCalled()
+    expect(mockCompany.machineUsers.paymentKeys.list).not.toHaveBeenCalled()
   })
 
   it('shows no key sections when no Machine user matches the member', async () => {
@@ -280,8 +306,10 @@ describe('MemberDetailPage', () => {
     expect(screen.getByRole('heading', { name: 'research-agent' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Buyer keys' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'MCP keys' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Payment keys' })).not.toBeInTheDocument()
     expect(mockCompany.machineUsers.buyerKeys.list).not.toHaveBeenCalled()
     expect(mockCompany.machineUsers.mcpKeys.list).not.toHaveBeenCalled()
+    expect(mockCompany.machineUsers.paymentKeys.list).not.toHaveBeenCalled()
   })
 
   it('files a machine member under the Machines tab, and links back to Machines', async () => {

@@ -63,8 +63,8 @@ describe('PaymentKeyGuidance', () => {
     })
     const signed = Buffer.from(`ledewire-payment-key:${public_key}`, 'ascii')
     expect(verify(null, signed, key, Buffer.from(proof, 'base64url'))).toBe(true)
-    expect(verify(null, Buffer.from(public_key, 'ascii'), key, Buffer.from(proof, 'base64url'))).toBe(
-      false,
-    )
+    expect(
+      verify(null, Buffer.from(public_key, 'ascii'), key, Buffer.from(proof, 'base64url')),
+    ).toBe(false)
   })
 })
