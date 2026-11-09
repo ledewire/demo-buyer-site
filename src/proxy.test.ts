@@ -1,21 +1,23 @@
 import { describe, it, expect } from 'vitest'
 import { NextRequest } from 'next/server'
-import { config, middleware } from './middleware'
+import { config, proxy } from './proxy'
 
 function visit(path: string, cookie?: string) {
-  return middleware(
+  return proxy(
     new NextRequest(`http://localhost${path}`, cookie ? { headers: { cookie } } : undefined),
   )
 }
 
-describe('middleware', () => {
+describe('proxy', () => {
   it('sends a signed-out buyer to sign-in from a protected page', () => {
     const res = visit('/company/members')
     expect(res.status).toBe(307)
-    expect(new URL(res.headers.get('location') ?? '').pathname).toBe('/login')
+    const location = new URL(res.headers.get('location') ?? '')
+    expect(location.pathname).toBe('/login')
+    expect(location.searchParams.get('from')).toBe('/company/members')
   })
 
-  it('guards Search: the matcher runs the middleware on /search', () => {
+  it('guards Search: the matcher runs the proxy on /search', () => {
     expect(config.matcher).toContain('/search/:path*')
   })
 
