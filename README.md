@@ -78,7 +78,7 @@ src/
 │   ├── ledewire.ts      # createBuyerClient() — session-backed @ledewire/node client
 │   ├── session.ts       # iron-session setup and SessionData type
 │   └── config.ts        # Validated environment config
-├── middleware.ts         # Edge middleware: cookie presence check on buyer routes
+├── proxy.ts            # Next proxy (was middleware): cookie presence check on buyer routes
 └── __mocks__/
     └── ledewire-client.ts  # Shared Vitest mock for @ledewire/node
 ```
@@ -87,7 +87,7 @@ src/
 
 Two layers of auth protection run in parallel:
 
-- **Edge middleware** (`middleware.ts`) — fast cookie-presence check; redirects to `/login` before any page renders. Covers all buyer route groups.
+- **Proxy** (`proxy.ts`, formerly middleware) — fast cookie-presence check; redirects to `/login` before any page renders. Covers all buyer route groups.
 - **Server-side guard** (`requireAuth`) — full session validation inside Server Components; handles token expiry by redirecting to `/login`.
 - **Route Handler guard** (`requireAuthForRoute`) — same validation for API routes; returns `401 JSON` instead of redirecting.
 

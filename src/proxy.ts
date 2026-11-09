@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server'
 // token to sign-in itself, which a redirect from here would drop (#45).
 const INVITATION_LINK_PATH = '/company/invitations/accept'
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === INVITATION_LINK_PATH) return NextResponse.next()
   const session = request.cookies.get('lw_buyer_session')
   if (!session) {
