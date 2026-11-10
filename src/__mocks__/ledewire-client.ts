@@ -17,6 +17,7 @@ export const mockUserPaymentKeys = mockClient.user.paymentKeys
 export const mockUserSpendCap = mockClient.user.spendCap
 export const mockCompany = mockClient.company
 export const mockPublications = mockClient.publications
+export const mockTopics = mockClient.topics
 export const mockAcquisitions = mockClient.acquisitions
 export const mockContent = mockClient.content
 

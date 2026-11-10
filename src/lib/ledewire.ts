@@ -40,3 +40,6 @@ export async function createBuyerClient() {
 
   return createClient({ baseUrl: config.ledewireBaseUrl, storage })
 }
+
+/** The client `createBuyerClient()` returns. */
+export type BuyerClient = Awaited<ReturnType<typeof createBuyerClient>>
