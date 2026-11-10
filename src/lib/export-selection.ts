@@ -17,8 +17,9 @@ const EMPTY: SelectedWork[] = []
 // between renders until the stored selection actually changes.
 let cachedRaw: string | null = null
 let cached: SelectedWork[] = EMPTY
-// The selection while storage is unavailable (private mode, quota).
-let inMemory: SelectedWork[] = EMPTY
+// The selection since the last write storage refused (private mode, quota); null while storage
+// holds it.
+let inMemory: SelectedWork[] | null = null
 
 function parse(raw: string | null): SelectedWork[] {
   try {
@@ -30,11 +31,12 @@ function parse(raw: string | null): SelectedWork[] {
 }
 
 function read(): SelectedWork[] {
+  if (inMemory) return inMemory
   let raw: string | null
   try {
     raw = window.sessionStorage.getItem(STORAGE_KEY)
   } catch {
-    return inMemory
+    return EMPTY
   }
   if (raw !== cachedRaw) {
     cachedRaw = raw
@@ -46,6 +48,7 @@ function read(): SelectedWork[] {
 function write(items: SelectedWork[]) {
   try {
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+    inMemory = null
   } catch {
     inMemory = items
   }
