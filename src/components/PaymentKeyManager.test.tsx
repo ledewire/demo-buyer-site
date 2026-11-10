@@ -41,8 +41,8 @@ function mockFetch(status: number, body: object) {
 
 async function fillAndRegister(name = 'research-agent') {
   await userEvent.type(screen.getByLabelText('Name'), name)
-  // Paste the long values: typing 129 characters one keystroke at a time made
-  // these tests slow enough to hit Vitest's 5s timeout on a loaded machine (#94).
+  // Paste the long key and proof: typing them one keystroke at a time, a
+  // re-render per character, pushed these tests past Vitest's timeout (#94).
   await userEvent.click(screen.getByLabelText('Public key'))
   await userEvent.paste(PUBLIC_KEY)
   await userEvent.click(screen.getByLabelText('Proof'))
