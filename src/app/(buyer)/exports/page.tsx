@@ -1,11 +1,10 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { createBuyerClient } from '@/lib/ledewire'
+import { renderFetchError } from '@/lib/page-errors'
 import { getCompanyMembership } from '@/lib/company'
 import { listItems } from '@/lib/list-items'
 import { formatCents, formatDate } from '@/lib/format'
-import { AuthError, LedewireError } from '@ledewire/node'
 import type { CompanyPurchase, WalletTransactionItem } from '@ledewire/node'
 
 const BULK_REASONS: WalletTransactionItem['reason'][] = ['bulk_acquisition', 'bulk_hold']
@@ -18,94 +17,96 @@ interface ExportRow {
   date: string
 }
 
+async function loadExports() {
+  const client = await createBuyerClient()
+  const [transactions, membership] = await Promise.all([
+    client.wallet.transactions(),
+    getCompanyMembership(),
+  ])
+
+  // There is no list endpoint for acquisitions; each one that moved money
+  // leaves exactly one bulk wallet entry whose reference_id is its id.
+  const personal: ExportRow[] = listItems(transactions)
+    .filter((t) => BULK_REASONS.includes(t.reason))
+    .map((t) => ({
+      id: t.reference_id,
+      description: t.reason === 'bulk_hold' ? `${t.description} (held)` : t.description,
+      amountCents: t.amount_cents,
+      status: t.status,
+      date: t.occurred_at,
+    }))
+
+  let company: CompanyPurchase[] | null = null
+  if (membership?.role === 'admin') {
+    const result = await client.company.purchases.list({
+      kind: 'bulk_acquisition',
+      per_page: 100,
+    })
+    company = result.data
+  }
+  return { membership, personal, company }
+}
+
 export default async function ExportsPage() {
   await requireAuth()
 
+  let data: Awaited<ReturnType<typeof loadExports>>
   try {
-    const client = await createBuyerClient()
-    const [transactions, membership] = await Promise.all([
-      client.wallet.transactions(),
-      getCompanyMembership(),
-    ])
+    data = await loadExports()
+  } catch (err) {
+    return renderFetchError(err)
+  }
+  const { membership, personal, company } = data
 
-    // There is no list endpoint for acquisitions; each one that moved money
-    // leaves exactly one bulk wallet entry whose reference_id is its id.
-    const personal: ExportRow[] = listItems(transactions)
-      .filter((t) => BULK_REASONS.includes(t.reason))
-      .map((t) => ({
-        id: t.reference_id,
-        description: t.reason === 'bulk_hold' ? `${t.description} (held)` : t.description,
-        amountCents: t.amount_cents,
-        status: t.status,
-        date: t.occurred_at,
-      }))
-
-    let company: CompanyPurchase[] | null = null
-    if (membership?.role === 'admin') {
-      const result = await client.company.purchases.list({
-        kind: 'bulk_acquisition',
-        per_page: 100,
-      })
-      company = result.data
-    }
-
-    return (
-      <div className="space-y-8">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Exports</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Bulk exports you have approved. Quotes that were never approved don&apos;t appear
-              here.
-            </p>
-          </div>
-          <Link
-            href="/catalog"
-            className="px-4 py-2 rounded-md shadow-xs text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
-          >
-            New export
-          </Link>
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Exports</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Bulk exports you have approved. Quotes that were never approved don&apos;t appear here.
+          </p>
         </div>
+        <Link
+          href="/catalog"
+          className="px-4 py-2 rounded-md shadow-xs text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+        >
+          New export
+        </Link>
+      </div>
 
+      <section className="space-y-3">
+        {company && <h2 className="text-lg font-semibold text-gray-800">Your exports</h2>}
+        <ExportTable
+          rows={personal}
+          empty={
+            membership
+              ? 'No exports paid from your personal wallet. Exports paid by your Company are listed for its admins.'
+              : 'No exports yet.'
+          }
+        />
+      </section>
+
+      {company && (
         <section className="space-y-3">
-          {company && <h2 className="text-lg font-semibold text-gray-800">Your exports</h2>}
+          <h2 className="text-lg font-semibold text-gray-800">
+            {membership!.company_name} exports
+          </h2>
           <ExportTable
-            rows={personal}
-            empty={
-              membership
-                ? 'No exports paid from your personal wallet. Exports paid by your Company are listed for its admins.'
-                : 'No exports yet.'
-            }
+            showMember
+            empty="Your Company has no exports yet."
+            rows={company.map((p) => ({
+              id: p.id,
+              description: p.member.name,
+              amountCents: p.amount_cents,
+              status: p.status,
+              date: p.occurred_at,
+            }))}
           />
         </section>
-
-        {company && (
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold text-gray-800">
-              {membership!.company_name} exports
-            </h2>
-            <ExportTable
-              showMember
-              empty="Your Company has no exports yet."
-              rows={company.map((p) => ({
-                id: p.id,
-                description: p.member.name,
-                amountCents: p.amount_cents,
-                status: p.status,
-                date: p.occurred_at,
-              }))}
-            />
-          </section>
-        )}
-      </div>
-    )
-  } catch (err) {
-    if (err instanceof AuthError) redirect('/login')
-    if (err instanceof LedewireError) {
-      return <p className="text-red-600 text-sm">API error: {err.message}</p>
-    }
-    throw err
-  }
+      )}
+    </div>
+  )
 }
 
 function ExportTable({
