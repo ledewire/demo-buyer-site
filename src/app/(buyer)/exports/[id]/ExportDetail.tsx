@@ -76,7 +76,7 @@ export default function ExportDetail({ initialAcquisition }: Props) {
   const [busy, setBusy] = useState<Action | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Expiry is judged against the time of the last state change, not read during render.
-  const [now, setNow] = useState(() => Date.now())
+  const [checkedAt, setCheckedAt] = useState(() => Date.now())
   const exportUrl = `/api/exports/${encodeURIComponent(acq.id)}`
 
   const refresh = useCallback(async () => {
@@ -90,7 +90,7 @@ export default function ExportDetail({ initialAcquisition }: Props) {
     } catch {
       setError('Could not refresh the export status. Use Refresh to try again.')
     } finally {
-      setNow(Date.now())
+      setCheckedAt(Date.now())
     }
   }, [exportUrl])
 
@@ -117,14 +117,14 @@ export default function ExportDetail({ initialAcquisition }: Props) {
       setError('Network error — please try again')
     } finally {
       setBusy(null)
-      setNow(Date.now())
+      setCheckedAt(Date.now())
     }
   }
 
   const { quote } = acq
   const isQuoted = acq.status === 'quoted'
   const quoteReady = acq.quote_state === 'ready'
-  const expired = !!quote.expires_at && new Date(quote.expires_at).getTime() < now
+  const expired = !!quote.expires_at && new Date(quote.expires_at).getTime() < checkedAt
   const acknowledged = !!quote.exclusions_acknowledged_at
   const maximumHold = formatCents(quote.maximum_chargeable_total_cents)
 
