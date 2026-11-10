@@ -8,12 +8,7 @@ const eslintConfig = [
   ...nextTypescript,
   security.configs.recommended,
   {
-    // eslint-config-next 16 brings eslint-plugin-react-hooks 7, whose React Compiler rules
-    // flag code that passed on 15. Off until #86 adopts them.
     rules: {
-      'react-hooks/error-boundaries': 'off',
-      'react-hooks/set-state-in-effect': 'off',
-      'react-hooks/purity': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'security/detect-object-injection': 'warn',
       'security/detect-non-literal-regexp': 'warn',
