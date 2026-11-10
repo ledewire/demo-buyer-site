@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import WalletFund from './WalletFund'
 
 vi.mock('@stripe/stripe-js', () => ({ loadStripe: vi.fn().mockResolvedValue(null) }))
 vi.mock('@stripe/react-stripe-js', () => ({
   Elements: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  PaymentElement: () => <div data-testid="payment-element" />,
-  useStripe: () => null,
-  useElements: () => null,
+  PaymentElement: vi.fn(() => <div data-testid="payment-element" />),
+  useStripe: vi.fn(),
+  useElements: vi.fn(),
 }))
 
 function mockFetch(status: number, body: object) {
@@ -18,9 +19,27 @@ function mockFetch(status: number, body: object) {
   } as Response)
 }
 
+const session = { client_secret: 'pi_secret', session_id: 'sess_1', public_key: 'pk_test' }
+
+/** Walks the form up to the mounted Payment Element; `statusBodies` answer later fetches. */
+async function openPaymentForm(target: 'personal' | 'company', ...statusBodies: object[]) {
+  const fetch = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => session } as Response)
+  for (const body of statusBodies) {
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => body } as Response)
+  }
+  global.fetch = fetch
+  render(<WalletFund target={target} />)
+  await userEvent.click(screen.getByRole('button', { name: /fund wallet|add funds/i }))
+  await userEvent.type(screen.getByLabelText(/amount to fund/i), '10')
+  await userEvent.click(screen.getByRole('button', { name: /continue/i }))
+  await screen.findByTestId('payment-element')
+}
+
 describe('WalletFund', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.mocked(useStripe).mockReturnValue(null)
+    vi.mocked(useElements).mockReturnValue(null)
   })
 
   it('renders a Fund wallet button initially', () => {
@@ -46,12 +65,17 @@ describe('WalletFund', () => {
   })
 
   it('advances to Stripe form on successful session creation', async () => {
-    mockFetch(200, { client_secret: 'pi_secret', session_id: 'sess_1', public_key: 'pk_test' })
+    mockFetch(200, session)
     render(<WalletFund />)
     await userEvent.click(screen.getByRole('button', { name: /fund wallet/i }))
     await userEvent.type(screen.getByLabelText(/amount to fund/i), '10')
     await userEvent.click(screen.getByRole('button', { name: /continue/i }))
     await waitFor(() => expect(screen.getByTestId('payment-element')).toBeInTheDocument())
+  })
+
+  it('mounts the Payment Element in tabs, which Stripe.js no longer defaults to', async () => {
+    await openPaymentForm('personal')
+    expect(vi.mocked(PaymentElement).mock.lastCall?.[0]).toEqual({ options: { layout: 'tabs' } })
   })
 
   it('shows error when session creation fails', async () => {
@@ -69,7 +93,7 @@ describe('WalletFund', () => {
   })
 
   it('creates a Company payment session for the Company target', async () => {
-    mockFetch(200, { client_secret: 'pi_secret', session_id: 'sess_1', public_key: 'pk_test' })
+    mockFetch(200, session)
     render(<WalletFund target="company" />)
     await userEvent.click(screen.getByRole('button', { name: /add funds/i }))
     await userEvent.type(screen.getByLabelText(/amount to fund/i), '25')
@@ -89,5 +113,56 @@ describe('WalletFund', () => {
     await userEvent.click(screen.getByRole('button', { name: /fund wallet/i }))
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(screen.getByRole('button', { name: /fund wallet/i })).toBeInTheDocument()
+  })
+
+  describe('confirming the payment', () => {
+    const elements = { elements: true }
+    const confirmPayment = vi.fn()
+    const reload = vi.fn()
+
+    beforeEach(() => {
+      confirmPayment.mockReset()
+      reload.mockReset()
+      vi.mocked(useStripe).mockReturnValue({ confirmPayment } as never)
+      vi.mocked(useElements).mockReturnValue(elements as never)
+      vi.spyOn(window, 'location', 'get').mockReturnValue({
+        ...window.location,
+        href: 'http://localhost/wallet',
+        reload,
+      })
+    })
+
+    it('confirms with the mounted Elements and settles a Company top-up', async () => {
+      confirmPayment.mockResolvedValue({ paymentIntent: { status: 'succeeded' } })
+      await openPaymentForm('company')
+      await userEvent.click(screen.getByRole('button', { name: /confirm payment/i }))
+
+      expect(confirmPayment).toHaveBeenCalledWith({
+        elements,
+        confirmParams: { return_url: 'http://localhost/wallet' },
+        redirect: 'if_required',
+      })
+      await waitFor(() => expect(reload).toHaveBeenCalled())
+      expect(screen.getByRole('button', { name: /add funds/i })).toBeInTheDocument()
+    })
+
+    it('polls the payment status of a Personal top-up until it completes', async () => {
+      confirmPayment.mockResolvedValue({ paymentIntent: { status: 'succeeded' } })
+      await openPaymentForm('personal', { status: 'completed' })
+      await userEvent.click(screen.getByRole('button', { name: /confirm payment/i }))
+
+      await waitFor(() => expect(reload).toHaveBeenCalled())
+      expect(global.fetch).toHaveBeenLastCalledWith('/api/wallet/payment-status/sess_1')
+    })
+
+    it("shows Stripe's error and lets the buyer retry when confirmation fails", async () => {
+      confirmPayment.mockResolvedValue({ error: { message: 'Your card was declined.' } })
+      await openPaymentForm('personal')
+      await userEvent.click(screen.getByRole('button', { name: /confirm payment/i }))
+
+      expect(await screen.findByText('Your card was declined.')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /confirm payment/i })).toBeEnabled()
+      expect(reload).not.toHaveBeenCalled()
+    })
   })
 })
