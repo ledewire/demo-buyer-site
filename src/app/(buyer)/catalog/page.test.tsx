@@ -236,10 +236,18 @@ describe('CatalogPage', () => {
   })
 
   it('still lists publications and offers every topic, without counts, when the topic directory fails', async () => {
-    mockTopics.list.mockRejectedValue(new LedewireError('boom', 500))
+    const directoryError = new TypeError('fetch failed')
+    mockTopics.list.mockRejectedValue(directoryError)
     mockPublications.list.mockResolvedValue(listResponse([makePublication()]) as never)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     await renderPage({ topic: 'war-and-conflicts' })
+
+    expect(consoleError).toHaveBeenCalledWith(
+      '[catalog] Topic directory read failed',
+      directoryError,
+    )
+    consoleError.mockRestore()
 
     expect(screen.getByRole('link', { name: /The Daily/ })).toBeInTheDocument()
     const select = screen.getByRole('combobox', { name: 'Topic' })
@@ -259,7 +267,7 @@ describe('CatalogPage', () => {
     await renderPage({ topic: 'sports' })
 
     expect(
-      screen.getByText(/583 publications have no topics yet, so this list leaves them out\./),
+      screen.getByText(/no topics yet never match a topic filter \(583 in the catalog\)/),
     ).toBeInTheDocument()
   })
 

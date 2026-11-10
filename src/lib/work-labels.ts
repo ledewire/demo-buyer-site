@@ -31,7 +31,7 @@ export function topicLabel(slug: string): string {
  * an SDK upgrade fails typecheck here rather than being dropped from the catalog's
  * topic filter.
  */
-const TOPIC_SLUG_SET = {
+const KNOWN_TOPICS = {
   attractions: true,
   automotive: true,
   'books-and-literature': true,
@@ -69,9 +69,9 @@ const TOPIC_SLUG_SET = {
   'war-and-conflicts': true,
 } as const satisfies Record<TopicSlug, true>
 
-/** Every Topic slug, in the API's vocabulary order. */
-export const TOPIC_SLUGS = Object.keys(TOPIC_SLUG_SET) as TopicSlug[]
+/** Every Topic slug the SDK knows, in alphabetical order. */
+export const TOPIC_SLUGS = Object.keys(KNOWN_TOPICS) as TopicSlug[]
 
 export function isTopicSlug(value: string): value is TopicSlug {
-  return Object.hasOwn(TOPIC_SLUG_SET, value)
+  return Object.hasOwn(KNOWN_TOPICS, value)
 }

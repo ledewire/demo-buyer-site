@@ -5,7 +5,8 @@ import Link from 'next/link'
 import type { PublicationWork, PublicationWorkListResponse } from '@ledewire/node'
 import { useExportSelection } from '@/lib/export-selection'
 import { formatDate } from '@/lib/format'
-import { PAGE_KIND_LABELS, topicLabel, type PageKind } from '@/lib/work-labels'
+import { PAGE_KIND_LABELS, type PageKind } from '@/lib/work-labels'
+import TopicPills from '@/components/TopicPills'
 
 /** A Page kind to keep, or `''` for every kind. */
 type PageKindFilter = PageKind | ''
@@ -272,16 +273,7 @@ export default function WorksBrowser({ publicationId, publicationName, bulkLicen
                           {PAGE_KIND_LABELS[w.page_kind]}
                         </td>
                         <td className="px-4 py-2 text-sm">
-                          <ul className="flex flex-wrap gap-1">
-                            {w.topics.map((t) => (
-                              <li
-                                key={t}
-                                className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700 whitespace-nowrap"
-                              >
-                                {topicLabel(t)}
-                              </li>
-                            ))}
-                          </ul>
+                          <TopicPills topics={w.topics} />
                         </td>
                         <td className="px-4 py-2 text-sm text-gray-500 whitespace-nowrap">
                           {formatDate(w.last_mod)}

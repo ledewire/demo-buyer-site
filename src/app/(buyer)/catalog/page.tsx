@@ -2,11 +2,12 @@ import Link from 'next/link'
 import type { TopicSlug } from '@ledewire/node'
 import { requireAuth } from '@/lib/auth'
 import { formatDate } from '@/lib/format'
-import { createBuyerClient } from '@/lib/ledewire'
+import { createBuyerClient, type BuyerClient } from '@/lib/ledewire'
 import { renderFetchError } from '@/lib/page-errors'
 import { TOPIC_SLUGS, topicLabel } from '@/lib/work-labels'
 import ExportSelectionSummary from '@/components/ExportSelectionSummary'
 import Pagination from '@/components/Pagination'
+import TopicPills from '@/components/TopicPills'
 import {
   catalogHref,
   parseCatalogFilters,
@@ -31,11 +32,12 @@ interface TopicOption {
  * directory to list publications, so when it can't be read the filter still offers every
  * Topic the SDK knows, just without counts.
  */
-async function loadTopicOptions(client: Awaited<ReturnType<typeof createBuyerClient>>) {
+async function loadTopicOptions(client: BuyerClient) {
   try {
     const { data } = await client.topics.list()
     return data.map((t): TopicOption => ({ slug: t.slug, publicationCount: t.publication_count }))
-  } catch {
+  } catch (err) {
+    console.error('[catalog] Topic directory read failed', err)
     return TOPIC_SLUGS.map((slug): TopicOption => ({ slug, publicationCount: null }))
   }
 }
@@ -127,9 +129,8 @@ export default async function CatalogPage({ searchParams }: Props) {
 
       {topic && unclassifiedCount > 0 && (
         <p className="text-sm text-gray-500">
-          {unclassifiedCount === 1
-            ? '1 publication has no topics yet, so this list leaves it out.'
-            : `${unclassifiedCount} publications have no topics yet, so this list leaves them out.`}
+          Publications with no topics yet never match a topic filter ({unclassifiedCount} in the
+          catalog), so this list may be missing some.
         </p>
       )}
 
@@ -148,18 +149,7 @@ export default async function CatalogPage({ searchParams }: Props) {
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900">{p.name}</p>
                   <p className="text-xs text-gray-500 truncate">{p.domains.join(', ')}</p>
-                  {p.topics.length > 0 && (
-                    <ul aria-label="Topics" className="mt-1 flex flex-wrap gap-1">
-                      {p.topics.map((t) => (
-                        <li
-                          key={t}
-                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700 whitespace-nowrap"
-                        >
-                          {topicLabel(t)}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <TopicPills topics={p.topics} className="mt-1" />
                 </div>
                 <div className="flex items-center gap-3 text-xs">
                   {p.coverage_horizon && (
