@@ -41,8 +41,12 @@ function mockFetch(status: number, body: object) {
 
 async function fillAndRegister(name = 'research-agent') {
   await userEvent.type(screen.getByLabelText('Name'), name)
-  await userEvent.type(screen.getByLabelText('Public key'), PUBLIC_KEY)
-  await userEvent.type(screen.getByLabelText('Proof'), PROOF)
+  // Paste the long key and proof: typing them one keystroke at a time, a
+  // re-render per character, pushed these tests past Vitest's timeout (#94).
+  await userEvent.click(screen.getByLabelText('Public key'))
+  await userEvent.paste(PUBLIC_KEY)
+  await userEvent.click(screen.getByLabelText('Proof'))
+  await userEvent.paste(PROOF)
   await userEvent.click(screen.getByRole('button', { name: 'Register key' }))
 }
 
