@@ -9,11 +9,14 @@ vi.mock('./config', () => ({
 }))
 
 // Sealed by iron-session 8.0.4 through getIronSession(...).save() with this module's options
-// and the secret above. Real cookies carry a 14-day expiry, so the clock is pinned to the
-// moment it was sealed rather than sealing it with no expiry.
+// and the secret above. Like every real cookie it carries iron-session's default 14-day seal
+// expiry (separate from the cookie's 7-day maxAge), so the clock is pinned to the moment it
+// was sealed rather than sealing it with no expiry.
 const V8_SEALED_AT = 1794270084530
 const V8_COOKIE =
   'Fe26.2*1*78dea165a9ed6aed8fa037e221b39a58bf9d3a101004f06a1421a8d5d65f6552*-JV_lPT-dR-T6fnyKDUP4A*TxUXmjBbwpVnzO2R1xj6OT_sBw426zOEbxCxuJoBE67Z_9_q8_GsVcfGjptJO-eiyTp067jqx-VXXBsnHzjQOLx-jChCXFJbGVaVEaxmhJA*1795479684530*98ebc19bc187668b7ca38ac8bf2e291531f9efd15b6e25b9df6fe0ba1608f8ea*W5X6ZXV_PrtQFGZPVBjiLbqPo3VE2hiiONwCBbEZGxw~2'
+// The same cookie with its IV segment altered, so the seal's HMAC no longer verifies.
+const TAMPERED_V8_COOKIE = V8_COOKIE.replace('-JV_', '-XX_')
 
 function withSessionCookie(value: string) {
   vi.mocked(cookies).mockResolvedValue({
@@ -45,7 +48,7 @@ describe('getSession', () => {
   })
 
   it('yields a signed-out session for a cookie it cannot unseal', async () => {
-    withSessionCookie(V8_COOKIE.replace('-JV_', '-XX_'))
+    withSessionCookie(TAMPERED_V8_COOKIE)
 
     const session = await getSession()
 

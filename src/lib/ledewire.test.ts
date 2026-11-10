@@ -76,14 +76,28 @@ describe('createBuyerClient', () => {
     expect(mockSession.destroy).toHaveBeenCalled()
   })
 
-  it('storage.clearTokens clears fields when destroy throws', async () => {
-    mockSession.destroy.mockRejectedValueOnce(new Error('destroy failed'))
+  it('storage.clearTokens signs out a session whose cookie store is read-only', async () => {
+    // A Server Component's cookie store throws on set(), so destroy() cannot clear the cookie.
+    const { getIronSession } = await import('iron-session')
+    const session = await getIronSession(
+      {
+        get: () => undefined,
+        set: () => {
+          throw new Error('Cookies can only be modified in a Server Action or Route Handler')
+        },
+      },
+      { password: 'read-only-store-secret-0123456789abcdef', cookieName: 'lw_buyer_session' },
+    )
+    Object.assign(session, { accessToken: 'tok_access', refreshToken: 'tok_refresh' })
+    mockGetSession.mockResolvedValue(session)
     const { createBuyerClient } = await import('./ledewire')
     await createBuyerClient()
     const { storage } = mockCreateClient.mock.calls[0][0]
+
     await storage.clearTokens()
-    expect(mockSession.accessToken).toBeUndefined()
-    expect(mockSession.refreshToken).toBeUndefined()
-    expect(mockSession.expiresAt).toBeUndefined()
+
+    expect(await storage.getTokens()).toBeNull()
+    // The session is request-cached, so a later bare save() must stay a no-op, not throw.
+    await expect(session.save()).resolves.toBeUndefined()
   })
 })
