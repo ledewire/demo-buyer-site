@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { fullPageNavigate } from '@/lib/navigation'
 import LoginForm from './LoginForm'
@@ -55,7 +55,7 @@ describe('LoginForm', () => {
   it('redirects to /dashboard on successful login', async () => {
     mockFetch(200, { ok: true })
     render(<LoginForm googleClientId={null} />)
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'user@example.com' } })
+    await userEvent.type(screen.getByLabelText(/email/i), 'user@example.com')
     await userEvent.type(screen.getByLabelText(/password/i), 'password123')
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }))
     await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/dashboard'))
@@ -64,7 +64,7 @@ describe('LoginForm', () => {
   it('stays busy while the dashboard loads', async () => {
     mockFetch(200, { ok: true })
     render(<LoginForm googleClientId={null} />)
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'user@example.com' } })
+    await userEvent.type(screen.getByLabelText(/email/i), 'user@example.com')
     await userEvent.type(screen.getByLabelText(/password/i), 'password123')
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }))
     await waitFor(() => expect(fullPageNavigate).toHaveBeenCalled())
@@ -74,7 +74,7 @@ describe('LoginForm', () => {
   it('shows error on failed login', async () => {
     mockFetch(401, { error: 'Invalid email or password' })
     render(<LoginForm googleClientId={null} />)
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'user@example.com' } })
+    await userEvent.type(screen.getByLabelText(/email/i), 'user@example.com')
     await userEvent.type(screen.getByLabelText(/password/i), 'wrongpass')
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }))
     await waitFor(() =>
@@ -87,7 +87,7 @@ describe('LoginForm', () => {
     const tokens = { company_invitation_token: 'T k', invitation_token: 'S' }
 
     async function signIn() {
-      fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'a@b.com' } })
+      await userEvent.type(screen.getByLabelText(/email/i), 'a@b.com')
       await userEvent.type(screen.getByLabelText(/password/i), 'secret123')
       await userEvent.click(screen.getByRole('button', { name: /^sign in$/i }))
     }

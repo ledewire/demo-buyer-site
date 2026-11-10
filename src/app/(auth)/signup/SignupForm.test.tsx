@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { fullPageNavigate } from '@/lib/navigation'
 import SignupForm from './SignupForm'
@@ -35,7 +35,7 @@ function mockFetch(status: number, body: object) {
 
 async function fillAndSubmit() {
   await userEvent.type(screen.getByLabelText(/full name/i), 'Alice')
-  fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'alice@example.com' } })
+  await userEvent.type(screen.getByLabelText(/email/i), 'alice@example.com')
   await userEvent.type(screen.getByLabelText(/password/i), 'securepassword')
   await userEvent.click(screen.getByRole('button', { name: /create account/i }))
 }
@@ -69,7 +69,7 @@ describe('SignupForm', () => {
     mockFetch(201, { ok: true })
     render(<SignupForm googleClientId={null} />)
     await userEvent.type(screen.getByLabelText(/full name/i), 'Alice')
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'alice@example.com' } })
+    await userEvent.type(screen.getByLabelText(/email/i), 'alice@example.com')
     await userEvent.type(screen.getByLabelText(/password/i), 'securepassword')
     await userEvent.click(screen.getByRole('button', { name: /create account/i }))
     await waitFor(() => expect(fullPageNavigate).toHaveBeenCalledWith('/dashboard'))
@@ -79,7 +79,7 @@ describe('SignupForm', () => {
     mockFetch(201, { ok: true })
     render(<SignupForm googleClientId={null} />)
     await userEvent.type(screen.getByLabelText(/full name/i), 'Alice')
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'alice@example.com' } })
+    await userEvent.type(screen.getByLabelText(/email/i), 'alice@example.com')
     await userEvent.type(screen.getByLabelText(/password/i), 'securepassword')
     await userEvent.click(screen.getByRole('button', { name: /create account/i }))
     await waitFor(() => expect(fullPageNavigate).toHaveBeenCalled())
@@ -90,7 +90,7 @@ describe('SignupForm', () => {
     mockFetch(409, { error: 'Email already taken' })
     render(<SignupForm googleClientId={null} />)
     await userEvent.type(screen.getByLabelText(/full name/i), 'Alice')
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'alice@example.com' } })
+    await userEvent.type(screen.getByLabelText(/email/i), 'alice@example.com')
     await userEvent.type(screen.getByLabelText(/password/i), 'securepassword')
     await userEvent.click(screen.getByRole('button', { name: /create account/i }))
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Email already taken'))

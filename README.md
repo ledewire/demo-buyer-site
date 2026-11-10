@@ -124,7 +124,9 @@ See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ## Testing
 
-Tests use [Vitest](https://vitest.dev) + [Testing Library](https://testing-library.com) in a jsdom environment.
+Tests use [Vitest](https://vitest.dev) + [Testing Library](https://testing-library.com). Component
+tests (`.test.tsx`) run under jsdom and everything else under node; see
+[`CONTRIBUTING.md`](CONTRIBUTING.md) § _Testing conventions_.
 
 ```bash
 npm test                  # single run
