@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 
 vi.mock('next/navigation', () => ({
   redirect: vi.fn(() => {
@@ -11,9 +11,9 @@ vi.mock('@/lib/ledewire', () => import('@/__mocks__/ledewire-client'))
 
 import CatalogPage from './page'
 import { AuthError, LedewireError } from '@ledewire/node'
-import type { Publication, PublicationListResponse } from '@ledewire/node'
+import type { Publication, PublicationListResponse, TopicDirectoryResponse } from '@ledewire/node'
 import { redirect } from 'next/navigation'
-import { mockPublications } from '@/__mocks__/ledewire-client'
+import { mockPublications, mockTopics } from '@/__mocks__/ledewire-client'
 
 function makePublication(overrides: Partial<Publication> = {}): Publication {
   return {
@@ -47,6 +47,20 @@ function listResponse(
   }
 }
 
+const topicDirectory: TopicDirectoryResponse = {
+  data: [
+    {
+      slug: 'business-and-finance',
+      iab_id: '52',
+      name: 'Business and Finance',
+      publication_count: 190,
+    },
+    { slug: 'sports', iab_id: '483', name: 'Sports', publication_count: 374 },
+  ],
+  iab_version: '3.1',
+  unclassified_count: 583,
+}
+
 async function renderPage(searchParams: Record<string, string> = {}) {
   return render(await CatalogPage({ searchParams: Promise.resolve(searchParams) }))
 }
@@ -55,7 +69,25 @@ describe('CatalogPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockPublications.list.mockResolvedValue(listResponse([]) as never)
+    mockTopics.list.mockResolvedValue(topicDirectory as never)
   })
+
+  it('narrows the server search to the topic in the URL', async () => {
+    await renderPage({ topic: 'sports' })
+
+    expect(mockPublications.list).toHaveBeenCalledWith(
+      expect.objectContaining({ topics: ['sports'] }),
+    )
+  })
+
+  it.each<Record<string, string>>([{}, { topic: 'gardening' }])(
+    'sends no topics for %j',
+    async (searchParams) => {
+      await renderPage(searchParams)
+
+      expect(mockPublications.list.mock.calls[0][0]).not.toHaveProperty('topics')
+    },
+  )
 
   it('searches the server with q and bulk_licensable and renders what it returns', async () => {
     mockPublications.list.mockResolvedValue(
@@ -158,6 +190,99 @@ describe('CatalogPage', () => {
       'href',
       '/catalog?page=1',
     )
+  })
+
+  it("shows each publication's topics as labelled pills", async () => {
+    mockPublications.list.mockResolvedValue(
+      listResponse([
+        makePublication({ id: 'pub-1', topics: ['business-and-finance', 'food-and-drink'] }),
+        makePublication({ id: 'pub-2', name: 'Unclassified Times', topics: [] }),
+      ]) as never,
+    )
+
+    await renderPage()
+
+    const classified = screen.getByRole('link', { name: /The Daily/ })
+    const topics = within(classified).getByRole('list', { name: 'Topics' })
+    expect(
+      within(topics)
+        .getAllByRole('listitem')
+        .map((el) => el.textContent),
+    ).toEqual(['Business and finance', 'Food and drink'])
+    const unclassified = screen.getByRole('link', { name: /Unclassified Times/ })
+    expect(within(unclassified).queryByRole('list', { name: 'Topics' })).not.toBeInTheDocument()
+  })
+
+  it('offers every directory topic with its publication count, selecting the one in the URL', async () => {
+    await renderPage({ topic: 'sports' })
+
+    const select = screen.getByRole('combobox', { name: 'Topic' })
+    expect(
+      within(select)
+        .getAllByRole('option')
+        .map((o) => [(o as HTMLOptionElement).value, o.textContent]),
+    ).toEqual([
+      ['', 'All topics'],
+      ['business-and-finance', 'Business and finance (190)'],
+      ['sports', 'Sports (374)'],
+    ])
+    expect(select).toHaveValue('sports')
+  })
+
+  it('defaults the topic select to All topics', async () => {
+    await renderPage({ topic: 'gardening' })
+
+    expect(screen.getByRole('combobox', { name: 'Topic' })).toHaveValue('')
+  })
+
+  it('still lists publications and offers every topic, without counts, when the topic directory fails', async () => {
+    mockTopics.list.mockRejectedValue(new LedewireError('boom', 500))
+    mockPublications.list.mockResolvedValue(listResponse([makePublication()]) as never)
+
+    await renderPage({ topic: 'war-and-conflicts' })
+
+    expect(screen.getByRole('link', { name: /The Daily/ })).toBeInTheDocument()
+    const select = screen.getByRole('combobox', { name: 'Topic' })
+    const options = within(select).getAllByRole('option')
+    expect(options).toHaveLength(36)
+    expect(options[1]).toHaveTextContent(/^Attractions$/)
+    expect(options[35]).toHaveTextContent(/^War and conflicts$/)
+    expect(select).toHaveValue('war-and-conflicts')
+  })
+
+  it('notes that unclassified publications are left out of a topic-filtered list', async () => {
+    mockPublications.list.mockResolvedValue({
+      ...listResponse([makePublication()]),
+      unclassified_count: 583,
+    } as never)
+
+    await renderPage({ topic: 'sports' })
+
+    expect(
+      screen.getByText(/583 publications have no topics yet, so this list leaves them out\./),
+    ).toBeInTheDocument()
+  })
+
+  it.each([
+    ['no topic is selected', {}, 583],
+    ['every publication is classified', { topic: 'sports' }, 0],
+  ])('has no unclassified note when %s', async (_, searchParams, unclassified_count) => {
+    mockPublications.list.mockResolvedValue({
+      ...listResponse([makePublication()]),
+      unclassified_count,
+    } as never)
+
+    await renderPage(searchParams)
+
+    expect(screen.queryByText(/no topics yet/)).not.toBeInTheDocument()
+  })
+
+  it('submits the search form without a page, so a changed filter starts at page 1', async () => {
+    await renderPage({ topic: 'sports', page: '3' })
+
+    const form = screen.getByRole('combobox', { name: 'Topic' }).closest('form')!
+    expect(form).toHaveAttribute('method', 'get')
+    expect(form.querySelector('[name="page"]')).toBeNull()
   })
 
   it('says so when nothing matches', async () => {
