@@ -120,6 +120,26 @@ describe('ExportDetail', () => {
     expect(screen.queryByRole('button', { name: /approve/i })).not.toBeInTheDocument()
   })
 
+  it('offers re-quote once the quote expires while the page is open', async () => {
+    const expiresAt = Date.now() + 60_000
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      jsonResponse(409, { type: 'quote_expired', error: 'x' }),
+    )
+    const acq = makeAcq({
+      quote: {
+        ...makeAcq().quote,
+        expires_at: new Date(expiresAt).toISOString(),
+        exclusions_acknowledged_at: PAST,
+      },
+    })
+    render(<ExportDetail initialAcquisition={acq} />)
+    vi.spyOn(Date, 'now').mockReturnValue(expiresAt + 1)
+    await userEvent.click(screen.getByRole('button', { name: 'Approve & place hold' }))
+    expect(await screen.findByRole('button', { name: 'Re-quote' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /approve/i })).not.toBeInTheDocument()
+  })
+
   it.each([
     [{ type: 'quote_expired', error: 'x' }, /re-quote to price it/i],
     [

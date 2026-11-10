@@ -68,4 +68,16 @@ describe('useExportSelection', () => {
     act(() => result.current.add(a))
     expect(result.current.items).toEqual([a])
   })
+
+  it('works in memory when storage is readable but full', () => {
+    const { result } = renderHook(() => useExportSelection())
+    act(() => result.current.add(a))
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('full', 'QuotaExceededError')
+    })
+    act(() => result.current.add(b))
+    expect(result.current.items).toEqual([a, b])
+    act(() => result.current.remove(a.url))
+    expect(result.current.items).toEqual([b])
+  })
 })

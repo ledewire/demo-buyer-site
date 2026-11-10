@@ -1,10 +1,22 @@
-import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { createBuyerClient } from '@/lib/ledewire'
-import { AuthError, LedewireError } from '@ledewire/node'
+import { renderFetchError } from '@/lib/page-errors'
 import { formatCents } from '@/lib/format'
 import { listItems } from '@/lib/list-items'
 import { refusedInvitationNotice } from '@/lib/invitations'
+
+async function loadDashboard() {
+  const client = await createBuyerClient()
+  const [balance, purchaseList] = await Promise.all([
+    client.wallet.balance(),
+    client.purchases.list(),
+  ])
+  const purchases = listItems(purchaseList)
+
+  const totalSpent = purchases.reduce((sum, p) => sum + p.amount_cents, 0)
+  const recentPurchases = purchases.slice(0, 5)
+  return { balance, purchases, totalSpent, recentPurchases }
+}
 
 export default async function DashboardPage({
   searchParams,
@@ -16,67 +28,59 @@ export default async function DashboardPage({
   const notice = refusedInvitationNotice(await searchParams)
   const noticeBanner = notice && <InvitationNotice message={notice} />
 
+  let data: Awaited<ReturnType<typeof loadDashboard>>
   try {
-    const client = await createBuyerClient()
-    const [balance, purchaseList] = await Promise.all([
-      client.wallet.balance(),
-      client.purchases.list(),
-    ])
-    const purchases = listItems(purchaseList)
-
-    const totalSpent = purchases.reduce((sum, p) => sum + p.amount_cents, 0)
-    const recentPurchases = purchases.slice(0, 5)
-
+    data = await loadDashboard()
+  } catch (err) {
+    // Keep the invitation notice above the API error; a redirect or rethrow skips it.
+    const apiError = renderFetchError(err)
     return (
-      <div className="space-y-8">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+      <div className="space-y-4">
         {noticeBanner}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {balance.company_name ? (
-            // A Company member never sees the Company balance — show their cap headroom.
-            <StatCard
-              label={`Remaining today · ${balance.company_name}`}
-              value={
-                balance.remaining_cents === null ? 'Uncapped' : formatCents(balance.remaining_cents)
-              }
-            />
-          ) : (
-            <StatCard label="Wallet Balance" value={formatCents(balance.balance_cents ?? 0)} />
-          )}
-          <StatCard label="Total Purchases" value={String(purchases.length)} />
-          <StatCard label="Total Spent" value={formatCents(totalSpent)} />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Recent Purchases</h2>
-          {recentPurchases.length === 0 ? (
-            <p className="text-sm text-gray-500">No purchases yet.</p>
-          ) : (
-            <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
-              {recentPurchases.map((p) => (
-                <div key={p.id} className="px-4 py-3 flex justify-between">
-                  <span className="text-sm text-gray-800">{p.content.title}</span>
-                  <span className="text-sm font-medium text-gray-600">
-                    {formatCents(p.amount_cents)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {apiError}
       </div>
     )
-  } catch (err) {
-    if (err instanceof AuthError) redirect('/login')
-    if (err instanceof LedewireError) {
-      return (
-        <div className="space-y-4">
-          {noticeBanner}
-          <p className="text-red-600 text-sm">API error: {err.message}</p>
-        </div>
-      )
-    }
-    throw err
   }
+  const { balance, purchases, totalSpent, recentPurchases } = data
+
+  return (
+    <div className="space-y-8">
+      <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+      {noticeBanner}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        {balance.company_name ? (
+          // A Company member never sees the Company balance — show their cap headroom.
+          <StatCard
+            label={`Remaining today · ${balance.company_name}`}
+            value={
+              balance.remaining_cents === null ? 'Uncapped' : formatCents(balance.remaining_cents)
+            }
+          />
+        ) : (
+          <StatCard label="Wallet Balance" value={formatCents(balance.balance_cents ?? 0)} />
+        )}
+        <StatCard label="Total Purchases" value={String(purchases.length)} />
+        <StatCard label="Total Spent" value={formatCents(totalSpent)} />
+      </div>
+      <div>
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Recent Purchases</h2>
+        {recentPurchases.length === 0 ? (
+          <p className="text-sm text-gray-500">No purchases yet.</p>
+        ) : (
+          <div className="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
+            {recentPurchases.map((p) => (
+              <div key={p.id} className="px-4 py-3 flex justify-between">
+                <span className="text-sm text-gray-800">{p.content.title}</span>
+                <span className="text-sm font-medium text-gray-600">
+                  {formatCents(p.amount_cents)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function InvitationNotice({ message }: { message: string }) {

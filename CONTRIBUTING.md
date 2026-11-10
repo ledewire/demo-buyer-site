@@ -93,7 +93,11 @@ await expect(CompanyMembersPage()).rejects.toThrow('NEXT_REDIRECT') // a redirec
 
 1. Create `src/app/(buyer)/<page>/page.tsx`
 2. Call `await requireAuth()` at the top — this handles token expiry
-3. Wrap API calls in try/catch; redirect on `AuthError`, render an error message on `LedewireError`, rethrow unknown errors
+3. Fetch inside a `try` and render after it, never inside it (`react-hooks/error-boundaries`):
+   put the API calls in a page-local `async function load…()`, and in the `catch` return
+   `renderFetchError(err)` from `@/lib/page-errors`. That redirects on `AuthError`, renders the
+   message on `LedewireError` and rethrows anything else. `src/app/(buyer)/api-keys/page.tsx` is
+   the smallest example; the `company/*` pages fetch the membership in a `try` of its own first.
 
 ## Environment variables
 

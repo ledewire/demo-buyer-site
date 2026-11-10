@@ -1,12 +1,12 @@
 import { useId } from 'react'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { createBuyerClient } from '@/lib/ledewire'
+import { renderFetchError } from '@/lib/page-errors'
 import { getCompanyMembership } from '@/lib/company'
 import { getMemberSpend } from '@/lib/company-activity'
 import { formatCents } from '@/lib/format'
-import { AuthError, LedewireError, type CompanyMember } from '@ledewire/node'
+import type { CompanyMember } from '@ledewire/node'
 import CompanyTabs from '../../CompanyTabs'
 import NotInCompany from '../../NotInCompany'
 import CompanyPurchasesTable from '../../purchases/CompanyPurchasesTable'
@@ -55,6 +55,21 @@ function SpendTile({ label, cents }: { label: string; cents: number }) {
   )
 }
 
+async function loadMember(id: string, page: number) {
+  const client = await createBuyerClient()
+  const members = await client.company.members.list()
+  const member = members.data.find((m) => m.id === id)
+  // No open membership matches this member.
+  if (!member) return null
+
+  const [activity, purchases, machineKeys] = await Promise.all([
+    getMemberSpend(member.id),
+    client.company.purchases.list({ member: member.id, page, per_page: PER_PAGE }),
+    findMachineKeys(client, member),
+  ])
+  return { member, activity, purchases, machineKeys }
+}
+
 export default async function MemberDetailPage({
   params,
   searchParams,
@@ -67,141 +82,133 @@ export default async function MemberDetailPage({
   const { page } = parseFilters(await searchParams)
   const memberPath = `/company/members/${encodeURIComponent(id)}`
 
+  let membership: Awaited<ReturnType<typeof getCompanyMembership>>
   try {
-    const membership = await getCompanyMembership()
-    if (!membership) {
-      return <NotInCompany />
-    }
-    if (membership.role !== 'admin') {
-      return <p className="text-sm text-gray-500">Only Company admins can view members.</p>
-    }
+    membership = await getCompanyMembership()
+  } catch (err) {
+    return renderFetchError(err)
+  }
+  if (!membership) {
+    return <NotInCompany />
+  }
+  if (membership.role !== 'admin') {
+    return <p className="text-sm text-gray-500">Only Company admins can view members.</p>
+  }
 
-    const client = await createBuyerClient()
-    const members = await client.company.members.list()
-    const member = members.data.find((m) => m.id === id)
-    if (!member) {
-      return (
-        <div className="space-y-8">
-          <CompanyTabs current="people" />
-          <p className="text-sm text-gray-500">
-            No open membership matches this member.{' '}
-            <Link href="/company/members" className="text-indigo-600 hover:text-indigo-800">
-              Back to Members
-            </Link>
-          </p>
-        </div>
-      )
-    }
-
-    const [activity, purchases, machineKeys] = await Promise.all([
-      getMemberSpend(member.id),
-      client.company.purchases.list({ member: member.id, page, per_page: PER_PAGE }),
-      findMachineKeys(client, member),
-    ])
-    const machineUserPath =
-      machineKeys && `/api/company/machine-users/${encodeURIComponent(machineKeys.machineUserId)}`
-    const pastLastPage = purchases.data.length === 0 && purchases.pagination.total > 0
-    const isMachine = member.kind === 'machine'
-
+  let data: Awaited<ReturnType<typeof loadMember>>
+  try {
+    data = await loadMember(id, page)
+  } catch (err) {
+    return renderFetchError(err)
+  }
+  if (!data) {
     return (
       <div className="space-y-8">
-        <CompanyTabs current={isMachine ? 'machines' : 'people'} />
-        <div>
-          <Link
-            href={isMachine ? '/company/machines' : '/company/members'}
-            className="text-sm text-indigo-600 hover:text-indigo-800"
-          >
-            {isMachine ? '← Machines' : '← Members'}
+        <CompanyTabs current="people" />
+        <p className="text-sm text-gray-500">
+          No open membership matches this member.{' '}
+          <Link href="/company/members" className="text-indigo-600 hover:text-indigo-800">
+            Back to Members
           </Link>
-          <h1 className="mt-2 text-2xl font-bold text-gray-900">{member.name}</h1>
-          <dl aria-label="Member details" className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-            <div className="flex gap-1">
-              <dt className="text-gray-500">Kind:</dt>
-              <dd className="text-gray-800">
-                {member.kind === 'machine' ? 'Machine user' : 'Person'}
-              </dd>
-            </div>
-            {member.email && (
-              <div className="flex gap-1">
-                <dt className="text-gray-500">Email:</dt>
-                <dd className="text-gray-800">{member.email}</dd>
-              </div>
-            )}
-            <div className="flex gap-1">
-              <dt className="text-gray-500">Role:</dt>
-              <dd className="text-gray-800">{member.role === 'admin' ? 'Admin' : 'Member'}</dd>
-            </div>
-          </dl>
-        </div>
-
-        <MemberCapEditor member={member} todayCents={activity.todayCents} />
-
-        <div className="space-y-2">
-          <div className="grid grid-cols-1 sm:grid-cols-3 bg-white border border-gray-200 rounded-lg divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-            <SpendTile label="Today" cents={activity.todayCents} />
-            <SpendTile label="Last 7 days" cents={activity.last7Cents} />
-            <SpendTile label="Last 30 days" cents={activity.last30Cents} />
-          </div>
-          <p className="text-xs text-gray-500">
-            Spend counts captured amounts only, not live bulk holds.
-          </p>
-        </div>
-
-        {machineKeys && (
-          <>
-            <MachineKeyManager
-              kind="buyer"
-              apiPath={`${machineUserPath}/buyer-keys`}
-              initialKeys={machineKeys.buyerKeys}
-            />
-            <MachineKeyManager
-              kind="mcp"
-              apiPath={`${machineUserPath}/mcp-keys`}
-              initialKeys={machineKeys.mcpKeys}
-            />
-            <PaymentKeyManager
-              variant="machine"
-              apiPath={`${machineUserPath}/payment-keys`}
-              initialKeys={machineKeys.paymentKeys}
-            />
-          </>
-        )}
-
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-gray-800">Purchases and Bulk exports</h2>
-            <Link
-              href={`/company/purchases?${new URLSearchParams({ member: member.id })}`}
-              className="text-sm text-indigo-600 hover:text-indigo-800"
-            >
-              View in Company purchases
-            </Link>
-          </div>
-          {pastLastPage ? (
-            <p className="text-sm text-gray-500">
-              There are no purchases on this page.{' '}
-              <Link href={memberPath} className="text-indigo-600 hover:text-indigo-800">
-                Go to the first page
-              </Link>
-            </p>
-          ) : (
-            <CompanyPurchasesTable
-              purchases={purchases.data}
-              emptyMessage={`${member.name} hasn't bought anything yet.`}
-            />
-          )}
-          <Pagination
-            pagination={purchases.pagination}
-            hrefFor={(n) => `${memberPath}?page=${n}`}
-          />
-        </div>
+        </p>
       </div>
     )
-  } catch (err) {
-    if (err instanceof AuthError) redirect('/login')
-    if (err instanceof LedewireError) {
-      return <p className="text-red-600 text-sm">API error: {err.message}</p>
-    }
-    throw err
   }
+  const { member, activity, purchases, machineKeys } = data
+  const machineUserPath =
+    machineKeys && `/api/company/machine-users/${encodeURIComponent(machineKeys.machineUserId)}`
+  const pastLastPage = purchases.data.length === 0 && purchases.pagination.total > 0
+  const isMachine = member.kind === 'machine'
+
+  return (
+    <div className="space-y-8">
+      <CompanyTabs current={isMachine ? 'machines' : 'people'} />
+      <div>
+        <Link
+          href={isMachine ? '/company/machines' : '/company/members'}
+          className="text-sm text-indigo-600 hover:text-indigo-800"
+        >
+          {isMachine ? '← Machines' : '← Members'}
+        </Link>
+        <h1 className="mt-2 text-2xl font-bold text-gray-900">{member.name}</h1>
+        <dl aria-label="Member details" className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+          <div className="flex gap-1">
+            <dt className="text-gray-500">Kind:</dt>
+            <dd className="text-gray-800">
+              {member.kind === 'machine' ? 'Machine user' : 'Person'}
+            </dd>
+          </div>
+          {member.email && (
+            <div className="flex gap-1">
+              <dt className="text-gray-500">Email:</dt>
+              <dd className="text-gray-800">{member.email}</dd>
+            </div>
+          )}
+          <div className="flex gap-1">
+            <dt className="text-gray-500">Role:</dt>
+            <dd className="text-gray-800">{member.role === 'admin' ? 'Admin' : 'Member'}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <MemberCapEditor member={member} todayCents={activity.todayCents} />
+
+      <div className="space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 bg-white border border-gray-200 rounded-lg divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+          <SpendTile label="Today" cents={activity.todayCents} />
+          <SpendTile label="Last 7 days" cents={activity.last7Cents} />
+          <SpendTile label="Last 30 days" cents={activity.last30Cents} />
+        </div>
+        <p className="text-xs text-gray-500">
+          Spend counts captured amounts only, not live bulk holds.
+        </p>
+      </div>
+
+      {machineKeys && (
+        <>
+          <MachineKeyManager
+            kind="buyer"
+            apiPath={`${machineUserPath}/buyer-keys`}
+            initialKeys={machineKeys.buyerKeys}
+          />
+          <MachineKeyManager
+            kind="mcp"
+            apiPath={`${machineUserPath}/mcp-keys`}
+            initialKeys={machineKeys.mcpKeys}
+          />
+          <PaymentKeyManager
+            variant="machine"
+            apiPath={`${machineUserPath}/payment-keys`}
+            initialKeys={machineKeys.paymentKeys}
+          />
+        </>
+      )}
+
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold text-gray-800">Purchases and Bulk exports</h2>
+          <Link
+            href={`/company/purchases?${new URLSearchParams({ member: member.id })}`}
+            className="text-sm text-indigo-600 hover:text-indigo-800"
+          >
+            View in Company purchases
+          </Link>
+        </div>
+        {pastLastPage ? (
+          <p className="text-sm text-gray-500">
+            There are no purchases on this page.{' '}
+            <Link href={memberPath} className="text-indigo-600 hover:text-indigo-800">
+              Go to the first page
+            </Link>
+          </p>
+        ) : (
+          <CompanyPurchasesTable
+            purchases={purchases.data}
+            emptyMessage={`${member.name} hasn't bought anything yet.`}
+          />
+        )}
+        <Pagination pagination={purchases.pagination} hrefFor={(n) => `${memberPath}?page=${n}`} />
+      </div>
+    </div>
+  )
 }

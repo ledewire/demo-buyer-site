@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 
 /** One work chosen for a bulk export. */
 export interface SelectedWork {
@@ -11,39 +11,64 @@ export interface SelectedWork {
 
 const STORAGE_KEY = 'lw_export_selection'
 const CHANGE_EVENT = 'lw-export-selection-change'
+const EMPTY: SelectedWork[] = []
+
+// The last raw value read from storage and its parse, so the snapshot keeps its identity
+// between renders until the stored selection actually changes.
+let cachedRaw: string | null = null
+let cached: SelectedWork[] = EMPTY
+// The selection since the last write storage refused (private mode, quota); null while storage
+// holds it.
+let inMemory: SelectedWork[] | null = null
+
+function parse(raw: string | null): SelectedWork[] {
+  try {
+    const parsed: unknown = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? (parsed as SelectedWork[]) : EMPTY
+  } catch {
+    return EMPTY
+  }
+}
 
 function read(): SelectedWork[] {
+  if (inMemory) return inMemory
+  let raw: string | null
   try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY)
-    const parsed: unknown = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? (parsed as SelectedWork[]) : []
+    raw = window.sessionStorage.getItem(STORAGE_KEY)
   } catch {
-    return []
+    return EMPTY
   }
+  if (raw !== cachedRaw) {
+    cachedRaw = raw
+    cached = parse(raw)
+  }
+  return cached
 }
 
 function write(items: SelectedWork[]) {
   try {
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+    inMemory = null
   } catch {
-    // Storage unavailable (private mode, quota) — the selection lives in memory only.
+    inMemory = items
   }
-  window.dispatchEvent(new CustomEvent<SelectedWork[]>(CHANGE_EVENT, { detail: items }))
+  window.dispatchEvent(new Event(CHANGE_EVENT))
 }
+
+function subscribe(onChange: () => void) {
+  window.addEventListener(CHANGE_EVENT, onChange)
+  return () => window.removeEventListener(CHANGE_EVENT, onChange)
+}
+
+// No storage on the server: render empty, then restore the saved selection on hydration.
+const getServerSnapshot = () => EMPTY
 
 /**
  * The bulk-export Selection, kept in sessionStorage so it survives moving
  * between publications. Every mounted hook stays in sync via a window event.
  */
 export function useExportSelection() {
-  const [items, setItems] = useState<SelectedWork[]>([])
-
-  useEffect(() => {
-    setItems(read())
-    const onChange = (e: Event) => setItems((e as CustomEvent<SelectedWork[]>).detail)
-    window.addEventListener(CHANGE_EVENT, onChange)
-    return () => window.removeEventListener(CHANGE_EVENT, onChange)
-  }, [])
+  const items = useSyncExternalStore(subscribe, read, getServerSnapshot)
 
   const addMany = useCallback((works: SelectedWork[]) => {
     const current = read()

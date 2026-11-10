@@ -75,6 +75,8 @@ export default function ExportDetail({ initialAcquisition }: Props) {
   const [acq, setAcq] = useState(initialAcquisition)
   const [busy, setBusy] = useState<Action | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Expiry is judged against the time of the last state change, not read during render.
+  const [checkedAt, setCheckedAt] = useState(() => Date.now())
   const exportUrl = `/api/exports/${encodeURIComponent(acq.id)}`
 
   const refresh = useCallback(async () => {
@@ -87,6 +89,8 @@ export default function ExportDetail({ initialAcquisition }: Props) {
       }
     } catch {
       setError('Could not refresh the export status. Use Refresh to try again.')
+    } finally {
+      setCheckedAt(Date.now())
     }
   }, [exportUrl])
 
@@ -113,13 +117,14 @@ export default function ExportDetail({ initialAcquisition }: Props) {
       setError('Network error — please try again')
     } finally {
       setBusy(null)
+      setCheckedAt(Date.now())
     }
   }
 
   const { quote } = acq
   const isQuoted = acq.status === 'quoted'
   const quoteReady = acq.quote_state === 'ready'
-  const expired = !!quote.expires_at && new Date(quote.expires_at).getTime() < Date.now()
+  const expired = !!quote.expires_at && new Date(quote.expires_at).getTime() < checkedAt
   const acknowledged = !!quote.exclusions_acknowledged_at
   const maximumHold = formatCents(quote.maximum_chargeable_total_cents)
 
@@ -286,16 +291,17 @@ function CorpusPanel({ exportUrl }: { exportUrl: string }) {
   const [building, setBuilding] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch(`${exportUrl}/corpus`)
-      const data = await res.json()
-      if (res.ok) setCorpus(data)
-      else setError(data.error ?? 'Failed to load the archive status')
-    } catch {
-      setError('Network error — please try again')
-    }
-  }, [exportUrl])
+  const load = useCallback(
+    () =>
+      fetch(`${exportUrl}/corpus`)
+        .then(async (res) => {
+          const data = await res.json()
+          if (res.ok) setCorpus(data)
+          else setError(data.error ?? 'Failed to load the archive status')
+        })
+        .catch(() => setError('Network error — please try again')),
+    [exportUrl],
+  )
 
   useEffect(() => {
     load()
