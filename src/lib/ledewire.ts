@@ -29,11 +29,11 @@ export async function createBuyerClient() {
     },
     async clearTokens(): Promise<void> {
       try {
-        await session.destroy()
+        session.destroy()
       } catch {
-        session.accessToken = undefined
-        session.refreshToken = undefined
-        session.expiresAt = undefined
+        // destroy() empties the session before writing the cookie, so a read-only cookie
+        // store (a Server Component) still leaves this request signed out. Writing the
+        // fields back here would make a later save() on this request-cached session throw.
       }
     },
   }
