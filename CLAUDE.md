@@ -9,7 +9,7 @@ PR body via `/pr` → `bin/ship --body-file <path>` → `bin/worktree land <n>` 
   before writing code.
 - Never commit on `main`/`staging`, and never hand-create an issue branch — `bin/worktree issue`
   links it to the issue, and `bin/ship` reads the issue number from the branch name.
-- Node 22 everywhere (`.nvmrc`): CI, the devcontainer, Vercel (`engines`), and `bin/ship`, which
+- Node 26 everywhere (`.nvmrc`): CI, the devcontainer, Vercel (`engines`), and `bin/ship`, which
   refuses another major version.
 - Never hand-run `git push` or `gh pr create` for issue work; `bin/ship` refuses an unreviewed
   `HEAD`, runs the CI checks, pushes, and opens a draft PR with `Closes #N`.

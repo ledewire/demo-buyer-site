@@ -14,7 +14,7 @@ A Next.js 15 buyer portal for the [LedeWire](https://ledewire.com) content marke
 
 ## Prerequisites
 
-- Node.js 22 (`.nvmrc`)
+- Node.js 26 (`.nvmrc`)
 - A running LedeWire API instance (defaults to `https://api.ledewire.com`)
 
 ## Getting Started
@@ -52,7 +52,7 @@ Open [http://localhost:3000](http://localhost:3000). The app redirects unauthent
 
 The repo ships a [Dev Container](.devcontainer/devcontainer.json) for VS Code / GitHub Codespaces. It:
 
-- Uses the official `typescript-node:20` image
+- Uses the official `typescript-node:26` image
 - Runs `npm install` on container create
 - Forwards port 3000 and opens it in the browser automatically
 - Pre-installs recommended extensions (Prettier, ESLint, Tailwind CSS IntelliSense, Copilot)
