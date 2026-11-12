@@ -2,10 +2,6 @@
   "name": "LedeWire Demo Buyer Site",
   "image": "mcr.microsoft.com/devcontainers/typescript-node:26",
   "features": {
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "22",
-      "nodeGypDependencies": false
-    },
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "forwardPorts": [3000],
