@@ -22,6 +22,7 @@ npm run lint            # no lint errors
 npm run format:check    # no formatting drift (or run `npm run format` to fix)
 npm run test:coverage   # all tests pass
 npm run audit:security  # no high/critical vulnerabilities
+npm run build           # production build succeeds (needs SESSION_SECRET set)
 ```
 
 These are the exact steps CI runs, so a local green run means CI will pass.

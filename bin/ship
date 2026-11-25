@@ -126,6 +126,8 @@ npm run --silent lint
 npm run --silent format:check
 npm run --silent test:coverage
 npm run --silent audit:security
+# The placeholder CI uses, so a pass here does not depend on a local .env file.
+SESSION_SECRET=ci-placeholder-session-secret-not-used-at-runtime npm run --silent build
 
 if [ -n "${GH_TOKEN:-}" ]; then
   push_remote="https://x-access-token:${GH_TOKEN}@github.com/${repo_slug}.git"

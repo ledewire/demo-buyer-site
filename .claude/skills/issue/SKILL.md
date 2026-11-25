@@ -115,7 +115,7 @@ bin/ship --body-file <path>
 ```
 
 Refuses an unreviewed `HEAD` or a stale base, runs the same checks CI runs (typecheck, lint,
-format, tests with coverage, `npm audit`), pushes (tokenized URL when `GH_TOKEN` is set —
+format, tests with coverage, `npm audit`, build), pushes (tokenized URL when `GH_TOKEN` is set —
 see `CLAUDE.md`), verifies the push landed, and opens a **draft** PR with `Closes #<number>`
 above your body. Re-running is safe; it reuses the PR and leaves its body alone — after new
 commits, revise it with `/pr` and `gh pr edit --body-file <path>`. Then wait for CI and mark it ready on green:
