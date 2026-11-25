@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
 
 jobs:
   ci:
@@ -35,3 +35,9 @@ jobs:
 
       - name: Security audit
         run: npm run audit:security
+
+      - name: Build
+        run: npm run build
+        env:
+          # Placeholder: the build validates that this is set, but uses no real secret.
+          SESSION_SECRET: ci-placeholder-session-secret-not-used-at-runtime

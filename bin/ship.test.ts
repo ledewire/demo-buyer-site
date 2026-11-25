@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { sandbox, type Sandbox } from './sandbox'
 
 const BRANCH = '8-the-issue'
-const CHECKS = ['typecheck', 'lint', 'format:check', 'test:coverage', 'audit:security']
+const CHECKS = ['typecheck', 'lint', 'format:check', 'test:coverage', 'audit:security', 'build']
 
 let sb: Sandbox
 
