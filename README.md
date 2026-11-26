@@ -112,13 +112,14 @@ Tokens are stored in an encrypted `httpOnly` cookie via [iron-session](https://g
 
 ## CI
 
-GitHub Actions runs on every push to `main` and every pull request:
+GitHub Actions runs on every push to `main` or `staging` and every pull request into either:
 
 1. Type check
 2. Lint
 3. Format check
 4. Test with coverage
 5. Security audit (`--audit-level=high`)
+6. Production build
 
 See [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
