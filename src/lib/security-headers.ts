@@ -1,6 +1,6 @@
 // Response headers next.config.ts sends on every path.
 
-const GOOGLE_GSI = 'https://accounts.google.com/gsi/'
+const GOOGLE_GSI_BASE = 'https://accounts.google.com/gsi/'
 const STRIPE_JS = ['https://js.stripe.com', 'https://*.js.stripe.com']
 
 /**
@@ -12,21 +12,29 @@ const STRIPE_JS = ['https://js.stripe.com', 'https://*.js.stripe.com']
  * React needs 'unsafe-eval' in development only.
  */
 export function contentSecurityPolicy({ dev }: { dev: boolean }): string {
-  return [
-    "default-src 'self'",
-    [
-      "script-src 'self' 'unsafe-inline'",
+  const directives: Record<string, string[]> = {
+    'default-src': ["'self'"],
+    'script-src': [
+      "'self'",
+      "'unsafe-inline'",
       ...(dev ? ["'unsafe-eval'"] : []),
-      `${GOOGLE_GSI}client`,
+      `${GOOGLE_GSI_BASE}client`,
       ...STRIPE_JS,
-    ].join(' '),
-    `style-src 'self' 'unsafe-inline' ${GOOGLE_GSI}style`,
-    ['frame-src', GOOGLE_GSI, ...STRIPE_JS, 'https://hooks.stripe.com'].join(' '),
-    `connect-src 'self' ${GOOGLE_GSI} https://api.stripe.com`,
+    ],
+    'style-src': ["'self'", "'unsafe-inline'", `${GOOGLE_GSI_BASE}style`],
+    'frame-src': [GOOGLE_GSI_BASE, ...STRIPE_JS, 'https://hooks.stripe.com'],
+    'connect-src': ["'self'", GOOGLE_GSI_BASE, 'https://api.stripe.com'],
     // Purchased article bodies (ArticleView) embed images from any host.
-    "img-src 'self' data: https:",
-    "font-src 'self' data:",
-  ].join('; ')
+    'img-src': ["'self'", 'data:', 'https:'],
+    'font-src': ["'self'", 'data:'],
+    // These three don't fall back to default-src (object-src does, but 'none' is tighter).
+    'object-src': ["'none'"],
+    'base-uri': ["'self'"],
+    'form-action': ["'self'"],
+  }
+  return Object.entries(directives)
+    .map(([name, sources]) => [name, ...sources].join(' '))
+    .join('; ')
 }
 
 export const securityHeaders = [
@@ -43,6 +51,8 @@ export const securityHeaders = [
   // Enforce, with frame-ancestors 'none', once real use shows a clean console.
   {
     key: 'Content-Security-Policy-Report-Only',
+    // Read NODE_ENV directly, not via @/lib/config: next.config loads this
+    // module, and config requires SESSION_SECRET at import.
     value: contentSecurityPolicy({ dev: process.env.NODE_ENV === 'development' }),
   },
 ]
