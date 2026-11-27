@@ -1,14 +1,11 @@
 import type { NextConfig } from 'next'
+import { securityHeaders } from './src/lib/securityHeaders'
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['localhost:3001'],
+  poweredByHeader: false,
   async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [{ key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' }],
-      },
-    ]
+    return [{ source: '/(.*)', headers: securityHeaders }]
   },
 }
 
