@@ -1,5 +1,5 @@
 import type { NextConfig } from 'next'
-import { securityHeaders } from './src/lib/securityHeaders'
+import { securityHeaders } from './src/lib/security-headers'
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['localhost:3001'],

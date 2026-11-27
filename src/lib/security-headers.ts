@@ -1,5 +1,4 @@
-// Response headers sent on every path, from next.config.ts. Most answer the
-// Q4 2026 Qualys scan of the buyer portal (#110).
+// Response headers next.config.ts sends on every path.
 export const securityHeaders = [
   // VS Code's port-forwarding proxy injects COOP: same-origin, which blocks the
   // Google GSI popup from returning the credential via window.postMessage.

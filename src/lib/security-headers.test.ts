@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import nextConfig from '../../next.config'
 
 // Asserts through next.config so a header dropped from the config, not just
-// from this module, fails the test.
+// from this module, fails the test. Lives here, not beside next.config.ts,
+// because vitest only collects tests under src/ and bin/.
 async function headersForEveryPath(): Promise<Record<string, string>> {
   const routes = (await nextConfig.headers?.()) ?? []
   const everyPath = routes.find((route) => route.source === '/(.*)')
@@ -19,7 +20,6 @@ describe('security headers', () => {
     ['X-Frame-Options', 'DENY'],
     ['Referrer-Policy', 'strict-origin-when-cross-origin'],
     ['Permissions-Policy', 'camera=(), microphone=(), geolocation=()'],
-    // Google sign-in's popup returns the credential via postMessage.
     ['Cross-Origin-Opener-Policy', 'same-origin-allow-popups'],
   ])('sets %s: %s on every path', async (key, value) => {
     expect(await headersForEveryPath()).toHaveProperty([key], value)
